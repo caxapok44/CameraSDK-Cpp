@@ -10,17 +10,17 @@ The base URL for the API is: http://localhost:**9091**
 - **URL**: /api/v1/healthy
 - **Method**: GET
 - **Description**: Checks if the server is running and responsive.
-- Request Body: None
+- **Request Body**: None
 - **Success Response**:
     - Code: 200 OK
     - Content: "Healthy"
 ### Get Serial Numbers
 - **URL**: /api/v1/serialNumbers
 - **Method**: GET
-- Query Parameters:
+- **Query Parameters**:
     - index (optional): Index of the camera from which to retrieve serial numbers. Defaults to 0 if not provided.
 - **Description**: Retrieves the serial numbers of all cameras.
-- Request Body: None
+- **Request Body**: None
 - **Success Response**:
     - Code: 200 OK
     - Content: A JSON object with the following fields:
