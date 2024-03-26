@@ -3,7 +3,7 @@
 This documentation outlines the RESTful endpoints provided by our camera control server. These endpoints allow for interactions such as querying camera status, taking photos, managing recordings, and retrieving file lists.
 
 ## Base URL
-The base URL for the API is: http://localhost:**9091**
+The base URL for the API is: http://localhost:9091
 
 ## Endpoints
 ### Health Check
