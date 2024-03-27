@@ -5,10 +5,7 @@
 
 LeticoCamera::LeticoCamera(): mCurrentDownloadIndex(0)
 {
-	discoverAndOpenCamera();
-	mSerialNumber = mCamera->GetSerialNumber();
-	std::shared_ptr<ins_camera::StreamDelegate> delegate = std::make_shared<TestStreamDelegate>();
-	mCamera->SetStreamDelegate(delegate);
+	discoverAndOpenCamera();	
 }
 
 LeticoCamera::~LeticoCamera()
@@ -72,31 +69,34 @@ void LeticoCamera::deleteFile(const std::string &file_to_delete)
 	}
 }
 
-std::string LeticoCamera::downloadFile(const std::string &file_to_download)
-{
-	auto file_to_save = Utils::getSavePath();
-	file_to_save /= std::filesystem::path(file_to_download).filename();
-	const auto ret = mCamera->DownloadCameraFile(
-		file_to_download,
-		file_to_save,
-		[](int64_t current, int64_t total_size)
-		{ std::cout << "current :" << current << "; total_size: " << total_size << std::endl; }
-	);
-	if (ret)
-	{
-		std::cout << "Download " << file_to_save << " succeed!!!" << std::endl;
-		return file_to_save;
-	}
+std::string LeticoCamera::downloadFile(std::string file_to_download) {
+    auto task = [this, file_to_download]() {
+        auto file_to_save = std::filesystem::path("/home/ozinchenko/") / std::filesystem::path(file_to_download).filename();
+        std::cout << file_to_download << " will be saved to " << file_to_save << std::endl;
 
-	std::cout << "Download " << file_to_save << " failed!!!" << std::endl;
-	return "";
+        try {
+            if (mCamera->DownloadCameraFile(file_to_download, file_to_save.string())) {
+                std::cout << "Download succeeded: " << file_to_save << std::endl;
+            } else {
+                std::cout << "Download failed: " << file_to_save << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error during download: " << e.what() << std::endl;
+        } catch (...) {
+            std::cerr << "An unknown error occurred during download." << std::endl;
+        }
+    };
+
+    std::thread downloadThread(task);
+    downloadThread.detach(); // Detach the thread to allow it to run independently
 }
+
 
 std::vector<std::string> LeticoCamera::downloadFile(const std::vector<std::string> &files_to_download)
 {
 	std::vector<std::string> returnVector{};
 	returnVector.reserve(files_to_download.size());
-	for (const auto& file : files_to_download)
+	for (const auto &file : files_to_download)
 	{
 		returnVector.push_back(downloadFile(file));
 	}
@@ -110,12 +110,7 @@ void LeticoCamera::downloadAllFiles()
 	auto allFiles = getFileList();
 	for (size_t i = 0; i < allFiles.size(); i++)
 	{
-		const auto ret = mCamera->DownloadCameraFile(
-			allFiles[i],
-			file_to_save + std::to_string(i),
-			[](int64_t current, int64_t total_size)
-			{ std::cout << "current :" << current << "; total_size: " << total_size << std::endl; }
-		);
+		const auto ret = mCamera->DownloadCameraFile(allFiles[i], file_to_save + std::to_string(i));
 		if (ret)
 		{
 			std::cout << "Download " << file_to_save + std::to_string(i) << " succeed!!!" << std::endl;
@@ -412,5 +407,7 @@ void LeticoCamera::discoverAndOpenCamera()
 	{
 		std::cout << "Camera opened successfully." << std::endl;
 	}
+	mSerialNumber = mCamera->GetSerialNumber();
+	std::cout << mCamera->GetHttpBaseUrl();
 	discovery.FreeDeviceDescriptors(list);
 }

@@ -131,16 +131,19 @@ void HttpServer::createEndpoints()
 		{
 			// Parse camera index from request
 			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+
 			nlohmann::json jsonResponse;
 
 			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+
 				res.status = 400;  // Bad Request
 			}
 			else
 			{
 				auto deviceUrl = mCameras[cameraIndex]->takePhoto();
+
 				if (deviceUrl.empty())
 				{
 					jsonResponse = {{"status", "error"}, {"message", "Something went wrong, unable to take photo"}};
@@ -148,6 +151,7 @@ void HttpServer::createEndpoints()
 				else
 				{
 					auto folderUrl = mCameras[cameraIndex]->downloadFile(deviceUrl);
+
 					jsonResponse = {
 						{"status", "success"},
 						{"message", "Photo taken successfully"},

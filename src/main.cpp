@@ -6,7 +6,7 @@ int main()
 {
 	LeticoCamera camera;
 
-	HttpServer http({std::make_shared<LeticoCamera>(camera)});
+	//HttpServer http({std::make_shared<LeticoCamera>(camera)});
 
 	Menu menu(std::make_shared<LeticoCamera>(camera));
 	menu.showOptions();
