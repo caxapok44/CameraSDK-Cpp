@@ -5,7 +5,7 @@
 
 LeticoCamera::LeticoCamera(): mCurrentDownloadIndex(0)
 {
-	discoverAndOpenCamera();	
+	discoverAndOpenCamera();
 }
 
 LeticoCamera::~LeticoCamera()
@@ -69,28 +69,25 @@ void LeticoCamera::deleteFile(const std::string &file_to_delete)
 	}
 }
 
-std::string LeticoCamera::downloadFile(std::string file_to_download) {
-    auto task = [this, file_to_download]() {
-        auto file_to_save = std::filesystem::path("/home/ozinchenko/") / std::filesystem::path(file_to_download).filename();
-        std::cout << file_to_download << " will be saved to " << file_to_save << std::endl;
+std::string LeticoCamera::downloadFile(std::string file_to_download)
+{
+	std::string file_to_save = Utils::getSavePath() / std::filesystem::path(file_to_download).filename();
+	std::cout << file_to_download << " will be saved to " << file_to_save << std::endl;
+	const auto ret = mCamera->DownloadCameraFile(
+		file_to_download,
+		file_to_save,
+		[](int64_t current, int64_t total_size)
+		{ std::cout << "current :" << current << "; total_size: " << total_size << std::endl; }
+	);
+	if (ret)
+	{
+		std::cout << "Download " << file_to_download << " succeed!!!" << std::endl;
+		return file_to_save;
+	}
 
-        try {
-            if (mCamera->DownloadCameraFile(file_to_download, file_to_save.string())) {
-                std::cout << "Download succeeded: " << file_to_save << std::endl;
-            } else {
-                std::cout << "Download failed: " << file_to_save << std::endl;
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "Error during download: " << e.what() << std::endl;
-        } catch (...) {
-            std::cerr << "An unknown error occurred during download." << std::endl;
-        }
-    };
-
-    std::thread downloadThread(task);
-    downloadThread.detach(); // Detach the thread to allow it to run independently
+	std::cout << "Download " << file_to_download << " failed!!!" << std::endl;
+	return "";
 }
-
 
 std::vector<std::string> LeticoCamera::downloadFile(const std::vector<std::string> &files_to_download)
 {
