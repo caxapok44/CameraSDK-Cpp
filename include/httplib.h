@@ -287,7 +287,7 @@ using socket_t = int;
 /*
  * Declaration
  */
-namespace httplib {
+namespace Letico::httplib {
 
 namespace detail {
 

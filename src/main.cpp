@@ -1,14 +1,15 @@
-﻿#include "HttpServer/httpServer.h"
+﻿#include <memory>
+#include "HttpServer/httpServer.h"
 #include "LeticoCamera/leticoCamera.h"
 #include "Menu/menu.h"
 
 int main()
 {
-	LeticoCamera camera;
+	std::shared_ptr<LeticoCamera> camera = std::make_shared<LeticoCamera>();
 
-	//HttpServer http({std::make_shared<LeticoCamera>(camera)});
+	Letico::LeticoHttpServer http({camera});
 
-	Menu menu(std::make_shared<LeticoCamera>(camera));
+	Menu menu({camera});
 	menu.showOptions();
 
 	return 0;

@@ -2,16 +2,19 @@
 #include "httpServer.h"
 
 #include <cstddef>
+#include <iostream>
 #include <string>
 #include <utility>
 
-HttpServer::HttpServer(std::vector<std::shared_ptr<LeticoCamera>> cameras):
+using namespace Letico;
+
+LeticoHttpServer::LeticoHttpServer(std::vector<std::shared_ptr<LeticoCamera>> cameras):
 	mCameras(std::move(cameras)), mServerAddress("localhost"), mPort(9091)
 {
 	mServer = std::make_shared<httplib::Server>();
 	createServer();
 }
-HttpServer::~HttpServer()
+LeticoHttpServer::~LeticoHttpServer()
 {
 	if (mServer != nullptr)
 		mServer->stop();
@@ -19,7 +22,7 @@ HttpServer::~HttpServer()
 		mServerThread.join();
 }
 
-void HttpServer::createServer()
+void LeticoHttpServer::createServer()
 {
 	mServer.get()->set_base_dir(".");
 	mServer.get()->set_mount_point("/", ".");
@@ -48,7 +51,7 @@ void HttpServer::createServer()
 	}
 }
 
-void HttpServer::createEndpoints()
+void LeticoHttpServer::createEndpoints()
 {
 	//======== HEALTHY ===========
 	mServer.get()->Get(
@@ -129,38 +132,32 @@ void HttpServer::createEndpoints()
 		"/api/v1/takePhoto",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			// Parse camera index from request
 			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
-
 			nlohmann::json jsonResponse;
-
 			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-
 				res.status = 400;  // Bad Request
 			}
 			else
 			{
 				auto deviceUrl = mCameras[cameraIndex]->takePhoto();
-
 				if (deviceUrl.empty())
 				{
 					jsonResponse = {{"status", "error"}, {"message", "Something went wrong, unable to take photo"}};
 				}
 				else
 				{
-					auto folderUrl = mCameras[cameraIndex]->downloadFile(deviceUrl);
-
+					std::string folderUrl = mCameras[cameraIndex]->downloadFile(deviceUrl);
 					jsonResponse = {
 						{"status", "success"},
 						{"message", "Photo taken successfully"},
 						{"deviceUrl", deviceUrl},
 						{"homeUrl", folderUrl},
 						{"wwwUrl", folderUrl}};
+					std::cout << "dupa11";
 				}
 			}
-
 			res.set_content(jsonResponse.dump(), "application/json");
 		}
 	);

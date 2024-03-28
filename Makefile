@@ -12,7 +12,7 @@ OBJDIR := ./obj
 TARGET := $(BINDIR)/CameraSDKTest
 
 # Compiler flags
-CXXFLAGS := -Wall -std=c++20 -I$(INCDIR)
+CXXFLAGS := -Wall -std=c++20 -g -I$(INCDIR)
 
 # Linker flags
 LDFLAGS := -L$(LIBDIR) -lCameraSDK
