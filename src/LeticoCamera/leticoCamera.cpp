@@ -102,7 +102,6 @@ std::vector<std::string> LeticoCamera::downloadFile(const std::vector<std::strin
 
 void LeticoCamera::downloadAllFiles()
 {
-	std::string file_to_download;
 	std::string file_to_save = Utils::getSavePath();
 	auto allFiles = getFileList();
 	for (size_t i = 0; i < allFiles.size(); i++)
@@ -119,7 +118,7 @@ void LeticoCamera::downloadAllFiles()
 	}
 }
 
-void LeticoCamera::startPreviewLiveStream()
+std::string LeticoCamera::startPreviewLiveStream()
 {
 	ins_camera::LiveStreamParam param;
 	param.video_resolution = ins_camera::VideoResolution::RES_720_360P30;
@@ -130,19 +129,22 @@ void LeticoCamera::startPreviewLiveStream()
 	if (mCamera->StartLiveStreaming(param))
 	{
 		std::cout << "successfully started live stream" << std::endl;
+		return "";
 	}
+
+	return "Failed to start stream";
 }
 
-void LeticoCamera::stopPreviewLiveStream()
+std::string LeticoCamera::stopPreviewLiveStream()
 {
 	if (mCamera->StopLiveStreaming())
 	{
 		std::cout << "success!" << std::endl;
+		return "";
 	}
-	else
-	{
-		std::cerr << "failed to stop live." << std::endl;
-	}
+
+	std::cerr << "failed to stop live." << std::endl;
+	return "Failed to stop live stream";
 }
 
 void LeticoCamera::setExposureSettings()
@@ -198,14 +200,16 @@ void LeticoCamera::setCaptureSettings()
 	}
 }
 
-void LeticoCamera::getUUID()
+std::string LeticoCamera::getUUID()
 {
-	const auto str_uuid = mCamera->GetCameraUUID();
+	auto str_uuid = mCamera->GetCameraUUID();
 	if (str_uuid.empty())
 	{
 		std::cerr << "failed to get uuid" << std::endl;
+		return "";
 	}
 	std::cout << "uuid : " << str_uuid << std::endl;
+	return str_uuid;
 }
 
 void LeticoCamera::takePhotoAndDownload()
@@ -235,18 +239,84 @@ void LeticoCamera::takePhotoAndDownload()
 	mCamera->Close();
 }
 
-void LeticoCamera::getCurrentCaptureStatus()
+json LeticoCamera::getCurrentCaptureStatus()
 {
 	auto ret = mCamera->GetCaptureCurrentStatus();
 	if (ret == ins_camera::CaptureStatus::NOT_CAPTURE)
 	{
 		std::cout << "current statue : not capture" << std::endl;
-		;
 	}
 	else
 	{
 		std::cout << "current statue : capture" << std::endl;
 	}
+	json result;
+	switch(ret) {
+        case ins_camera::CaptureStatus::NOT_CAPTURE:
+            result = {{"status", "not capture"}};
+            break;
+        case ins_camera::CaptureStatus::NORMAL_CAPTURE:
+            result = {{"status", "normal capture"}};
+            break;
+        case ins_camera::CaptureStatus::TIMELAPSE_CAPTURE:
+            result = {{"status", "timelapse capture"}};
+            break;
+        case ins_camera::CaptureStatus::INTERVAL_SHOOTING_CAPTURE:
+            result = {{"status", "interval shooting capture"}};
+            break;
+        case ins_camera::CaptureStatus::SINGLE_SHOOTING:
+            result = {{"status", "single shooting"}};
+            break;
+        case ins_camera::CaptureStatus::HDR_SHOOTING:
+            result = {{"status", "HDR shooting"}};
+            break;
+		case ins_camera::CaptureStatus::SELF_TIMER_SHOOTING:
+            result = {{"status", "SELF TIMER SHOOTING"}};
+            break;
+        case ins_camera::CaptureStatus::BULLET_TIME_CAPTURE:
+            result = {{"status", "BULLET TIME CAPTURE"}};
+            break;
+        case ins_camera::CaptureStatus::SETTINGS_NEW_VALUE:
+            result = {{"status", "SETTINGS NEW VALUE"}};
+            break;
+        case ins_camera::CaptureStatus::HDR_CAPTURE:
+            result = {{"status", "HDR CAPTURE"}};
+            break;
+        case ins_camera::CaptureStatus::BURST_SHOOTING:
+            result = {{"status", "BURST SHOOTING"}};
+            break;
+		case ins_camera::CaptureStatus::STATIC_TIMELAPSE_SHOOTING:
+            result = {{"status", "STATIC TIMELAPSE SHOOTING"}};
+            break;
+        case ins_camera::CaptureStatus::INTERVAL_VIDEO_CAPTURE:
+            result = {{"status", "INTERVAL VIDEO CAPTURE"}};
+            break;
+        case ins_camera::CaptureStatus::TIMESHIFT_CAPTURE:
+            result = {{"status", "TIMESHIFT CAPTURE"}};
+            break;
+        case ins_camera::CaptureStatus::AEB_NIGHT_SHOOTING:
+            result = {{"status", "AEB NIGHT SHOOTING"}};
+            break;
+        case ins_camera::CaptureStatus::SINGLE_POWER_PANO_SHOOTING:
+            result = {{"status", "SINGLE POWER PANO SHOOTING"}};
+            break;
+		case ins_camera::CaptureStatus::HDR_POWER_PANO_SHOOTING:
+            result = {{"status", "HDR POWER PANO SHOOTING"}};
+            break;
+        case ins_camera::CaptureStatus::SUPER_NORMAL_CAPTURE:
+            result = {{"status", "SUPER NORMAL CAPTURE"}};
+            break;
+        case ins_camera::CaptureStatus::LOOP_RECORDING_CAPTURE:
+            result = {{"status", "LOOP RECORDING CAPTURE"}};
+            break;
+        case ins_camera::CaptureStatus::STARLAPSE_SHOOTING:
+            result = {{"status", "STARLAPSE SHOOTING"}};
+            break;
+        default:
+            result = {{"status", "unknown"}};
+            break;
+    }
+	return result;
 }
 
 void LeticoCamera::startTimelapse()
@@ -293,38 +363,81 @@ void LeticoCamera::stopTimelapse()
 	}
 }
 
-void LeticoCamera::getBatteryStatus()
+json LeticoCamera::getBatteryStatus()
 {
+	json result;
+
 	if (!mCamera->IsConnected())
 	{
-		std::cout << "device is offline" << std::endl;
+		result["error"] = "Device is offline";
+		return result;
 	}
 
 	ins_camera::BatteryStatus status;
 	bool ret = mCamera->GetBatteryStatus(status);
+
 	if (!ret)
 	{
-		std::cerr << "GetBatteryStatus failed" << std::endl;
+		result["error"] = "GetBatteryStatus failed";
+		return result;
 	}
-	std::cout << "PowerType : " << status.power_type << std::endl;
-	std::cout << "battery_level : " << status.battery_level << "%" << std::endl;
-	std::cout << "battery_scale : " << status.battery_scale << std::endl;
+
+	std::string powerType = status.power_type == ins_camera::PowerType::BATTERY ? "Battery" : "Adapter";
+
+	result["PowerType"] = powerType;
+	result["battery_level"] = status.battery_level;
+	result["battery_scale"] = status.battery_scale;
+
+	return result;
 }
 
-void LeticoCamera::getStorageInfo()
+json LeticoCamera::getStorageInfo()
 {
+	json result;
+
 	ins_camera::StorageStatus status;
 	bool ret = mCamera->GetStorageState(status);
 	if (!ret)
 	{
-		std::cerr << "GetBatteryStatus failed" << std::endl;
+		result["error"] = "GetStorageState failed";
+		return result;
 	}
 	std::cout << "free_space : " << status.free_space / 1000000000.0 << "GB" << std::endl;
 	std::cout << "total_space : " << status.total_space / 1000000000.0 << "GB" << std::endl;
 	std::cout << "state : " << status.state << std::endl;
+
+	result["free_space_GB"] = status.free_space / 1000000000.0;	 // Convert to GB
+	result["total_space_GB"] = status.total_space / 1000000000.0;  // Convert to GB
+
+	switch (status.state)
+	{
+	case ins_camera::CardState::STOR_CS_PASS:
+		result["state"] = "Pass";
+		break;
+	case ins_camera::CardState::STOR_CS_NOCARD:
+		result["state"] = "No Card";
+		break;
+	case ins_camera::CardState::STOR_CS_NOSPACE:
+		result["state"] = "No Space";
+		break;
+	case ins_camera::CardState::STOR_CS_INVALID_FORMAT:
+		result["state"] = "Invalid Format";
+		break;
+	case ins_camera::CardState::STOR_CS_WPCARD:
+		result["state"] = "Write Protected Card";
+		break;
+	case ins_camera::CardState::STOR_CS_OTHER_ERROR:
+		result["state"] = "Other Error";
+		break;
+	default:
+		result["state"] = "Unknown State";
+		break;
+	}
+
+	return result;
 }
 
-std::string LeticoCamera::startRecording()	//returning errorMessage, if "" - no error
+std::string LeticoCamera::startRecording()
 {
 	auto errorMessage = "";
 	if (!mCamera)

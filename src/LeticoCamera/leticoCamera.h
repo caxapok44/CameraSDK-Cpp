@@ -3,6 +3,7 @@
 #include <camera/camera.h>
 #include <camera/device_discovery.h>
 #include <camera/photography_settings.h>
+#include <json.hpp>
 
 #include "../utils.hpp"
 
@@ -11,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-
+using json = nlohmann::json;
 class LeticoCamera
 {
 public:
@@ -31,17 +32,17 @@ public:
 
 	std::string startRecording();
 	std::vector<std::string> stopRecording();
-	void startPreviewLiveStream();
-	void stopPreviewLiveStream();
+	std::string startPreviewLiveStream();
+	std::string stopPreviewLiveStream();
 	void setExposureSettings();
 	void setCaptureSettings();
-	void getUUID();
+	std::string getUUID();
 	void takePhotoAndDownload();
-	void getCurrentCaptureStatus();
+	json getCurrentCaptureStatus();
 	void startTimelapse();
 	void stopTimelapse();
-	void getBatteryStatus();
-	void getStorageInfo();
+	json getBatteryStatus();
+	json getStorageInfo();
 
 	// More camera-related methods...
 

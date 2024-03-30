@@ -99,30 +99,19 @@ void LeticoHttpServer::createEndpoints()
 		{
 			nlohmann::json jsonResponse;
 
-			size_t cameraIndex = 0;
-			auto it = req.params.find("index");
-			if (it != req.params.end())
+			if (mCameras.empty())
 			{
-				cameraIndex = std::stoi(it->second);
+				jsonResponse = {{"status", "error"}, {"message", "No initialized cameras"}};
+			}
+			auto serialNumbers = mCameras[0]->getAllSerialNumbers();
+
+			nlohmann::json jsonSerialNumbers = nlohmann::json::array();
+			for (const auto& serialNumber : serialNumbers)
+			{
+				jsonSerialNumbers.push_back(serialNumber);
 			}
 
-			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
-			{
-				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = 400;  // Bad Request
-			}
-			else
-			{
-				auto serialNumbers = mCameras[cameraIndex]->getAllSerialNumbers();
-
-				nlohmann::json jsonSerialNumbers = nlohmann::json::array();
-				for (const auto& serialNumber : serialNumbers)
-				{
-					jsonSerialNumbers.push_back(serialNumber);
-				}
-
-				jsonResponse = {{"status", "success"}, {"serialNumbers", jsonSerialNumbers}};
-			}
+			jsonResponse = {{"status", "success"}, {"serialNumbers", jsonSerialNumbers}};
 
 			res.set_content(jsonResponse.dump(), "application/json");
 		}
@@ -155,7 +144,6 @@ void LeticoHttpServer::createEndpoints()
 						{"deviceUrl", deviceUrl},
 						{"homeUrl", folderUrl},
 						{"wwwUrl", folderUrl}};
-					std::cout << "dupa11";
 				}
 			}
 			res.set_content(jsonResponse.dump(), "application/json");
@@ -273,6 +261,257 @@ void LeticoHttpServer::createEndpoints()
 						{"homeUrls", folderUrls},
 						{"wwwUrls", folderUrls}};
 				}
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== Delete file from device ========
+	mServer->Post(
+		"/api/v1/deleteFile",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				std::string fileToDelete = req.get_param_value("fileToDelete");
+				mCameras[cameraIndex]->deleteFile(fileToDelete);
+
+				jsonResponse = {{"status", "success"}, {"message", "Deletion successful"}, {"deletedFile", fileToDelete}};
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== Download file from device========
+	mServer->Post(
+		"/api/v1/downloadFile",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				std::string fileToDownload = req.get_param_value("fileToDownload");
+				auto folderUrl = mCameras[cameraIndex]->downloadFile(fileToDownload);
+				jsonResponse = {
+					{"status", "success"},
+					{"message", "Recording stopped and files downloaded successfully"},
+					{"deviceUrl", fileToDownload},
+					{"folderUrl", folderUrl}};
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== Start live stream ======== // Stream delegate should be set
+	mServer->Post(
+		"/api/v1/startLiveStream",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				auto errorMessage = mCameras[cameraIndex]->startPreviewLiveStream();
+				if (!errorMessage.empty())
+				{
+					jsonResponse = {{"status", "error"}, {"message", errorMessage}};
+					res.status = 500;  // Internal error
+				}
+				else
+				{
+					jsonResponse = {{"status", "success"}, {"message", "Start streaming successfully"}};
+				}
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== Stop live stream ========
+	mServer->Post(
+		"/api/v1/stopLiveStream",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				auto errorMessage = mCameras[cameraIndex]->stopPreviewLiveStream();
+				if (!errorMessage.empty())
+				{
+					jsonResponse = {{"status", "error"}, {"message", errorMessage}};
+				}
+				else
+				{
+					jsonResponse = {{"status", "success"}, {"message", "Stop streaming successfully"}};
+				}
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== get battery info ========
+	mServer->Post(
+		"/api/v1/getBatteryInfo",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				auto resultJson = mCameras[cameraIndex]->getBatteryStatus();
+				if (resultJson.contains("error"))
+				{
+					jsonResponse = {{"status", "error"}, {"message", resultJson["error"]}};
+					res.status = 500;  // Internal Server Error
+				}
+				else
+				{
+					jsonResponse = {{"status", "success"}, {"data", resultJson}};
+					res.status = 200;  // OK
+				}
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== get storage info ========
+
+	mServer->Post(
+		"/api/v1/getStorageInfo",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				auto resultJson = mCameras[cameraIndex]->getStorageInfo();
+				if (resultJson.contains("error"))
+				{
+					jsonResponse = {{"status", "error"}, {"message", resultJson["error"]}};
+					res.status = 500;  // Internal Server Error
+				}
+				else
+				{
+					jsonResponse = {{"status", "success"}, {"data", resultJson}};
+					res.status = 200;  // OK
+				}
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== get uuid ========
+	mServer->Post(
+		"/api/v1/getUUID",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				std::string uuid = mCameras[cameraIndex]->getUUID();
+				if (uuid.empty())
+				{
+					jsonResponse = {{"status", "error"}, {"message", "Failed to get UUID"}};
+					res.status = 500;  // Internal Server Error
+				}
+				else
+				{
+					jsonResponse = {{"status", "success"}, {"uuid", uuid}};
+					res.status = 200;  // OK
+				}
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== get current capture status ========
+	mServer->Post(
+		"/api/v1/getCurrentCaptureStatus",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				auto captureStatusJson = mCameras[cameraIndex]->getCurrentCaptureStatus();
+				jsonResponse = {{"status", "success"}, {"data", captureStatusJson}};
+				res.status = 200;  // OK
+			}
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
+	);
+	//======== start timelapse ========
+	mServer->Post(
+		"/api/v1/startTimelapse",
+		[&](const httplib::Request& req, httplib::Response& res)
+		{
+			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
+			nlohmann::json jsonResponse;
+
+			if (cameraIndex >= mCameras.size())
+			{
+				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+				res.status = 400;  // Bad Request
+			}
+			else
+			{
+				mCameras[cameraIndex]->startTimelapse();
+
+				jsonResponse = {{"status", "success"}, {"message", "Timelapse started successfully"}};
+				res.status = 200;  // OK
 			}
 
 			res.set_content(jsonResponse.dump(), "application/json");
