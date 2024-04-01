@@ -23,7 +23,6 @@ std::string LeticoCamera::takePhoto()
 		std::cerr << "Camera not initialized." << std::endl;
 		return "";
 	}
-
 	const auto url = mCamera->TakePhoto();
 	if (!url.IsSingleOrigin() || url.Empty())
 	{
@@ -71,7 +70,9 @@ void LeticoCamera::deleteFile(const std::string &file_to_delete)
 
 std::string LeticoCamera::downloadFile(std::string file_to_download)
 {
-	std::string file_to_save = Utils::getSavePath() / std::filesystem::path(file_to_download).filename();
+	//std::string file_to_save = Utils::getSavePath() / std::filesystem::path(file_to_download).filename();
+	std::string file_to_save = "/home/ozinchenko/insta360Photo/" / std::filesystem::path(file_to_download).filename();
+
 	std::cout << file_to_download << " will be saved to " << file_to_save << std::endl;
 	const auto ret = mCamera->DownloadCameraFile(
 		file_to_download,
@@ -102,7 +103,6 @@ std::vector<std::string> LeticoCamera::downloadFile(const std::vector<std::strin
 
 void LeticoCamera::downloadAllFiles()
 {
-	std::string file_to_download;
 	std::string file_to_save = Utils::getSavePath();
 	auto allFiles = getFileList();
 	for (size_t i = 0; i < allFiles.size(); i++)
@@ -119,7 +119,7 @@ void LeticoCamera::downloadAllFiles()
 	}
 }
 
-void LeticoCamera::startPreviewLiveStream()
+std::string LeticoCamera::startPreviewLiveStream()
 {
 	ins_camera::LiveStreamParam param;
 	param.video_resolution = ins_camera::VideoResolution::RES_720_360P30;
@@ -130,24 +130,29 @@ void LeticoCamera::startPreviewLiveStream()
 	if (mCamera->StartLiveStreaming(param))
 	{
 		std::cout << "successfully started live stream" << std::endl;
+		return "";
 	}
+
+	return "Failed to start stream";
 }
 
-void LeticoCamera::stopPreviewLiveStream()
+std::string LeticoCamera::stopPreviewLiveStream()
 {
 	if (mCamera->StopLiveStreaming())
 	{
 		std::cout << "success!" << std::endl;
+		return "";
 	}
-	else
-	{
-		std::cerr << "failed to stop live." << std::endl;
-	}
+
+	std::cerr << "failed to stop live." << std::endl;
+	return "Failed to stop live stream";
 }
 
-void LeticoCamera::setExposureSettings()
+void LeticoCamera::setExposureSettings(
+	int bias, double shutterSpeed, int iso, ins_camera::PhotographyOptions_ExposureMode exposureMode, ins_camera::CameraFunctionMode functionMode
+)
 {
-	auto exposure_settings = mCamera->GetExposureSettings(ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE);
+	auto exposure_settings = mCamera->GetExposureSettings(functionMode);
 	if (exposure_settings)
 	{
 		std::cout << "EVBias : " << exposure_settings->EVBias() << std::endl;
@@ -155,41 +160,53 @@ void LeticoCamera::setExposureSettings()
 		std::cout << "speed  : " << exposure_settings->ShutterSpeed() << std::endl;
 	}
 
-	int bias;
-	std::cout << "please enter EVBIOS: ";
-	std::cin >> bias;
 	auto exposure = std::make_shared<ins_camera::ExposureSettings>();
-	auto exposure_mode = ins_camera::PhotographyOptions_ExposureMode::PhotographyOptions_ExposureOptions_Program_AUTO;
-	if (mCamera->GetCameraType() == ins_camera::CameraType::Insta360X3)
-	{
-		exposure_mode = ins_camera::PhotographyOptions_ExposureMode::PhotographyOptions_ExposureOptions_Program_FULL_AUTO;
-	}
-	exposure->SetExposureMode(exposure_mode);
-	exposure->SetEVBias(bias);	// range -80 ~ 80, default 0, step 1
-	exposure->SetIso(800);
-	exposure->SetShutterSpeed(1.0 / 120.0);
-	auto ret = mCamera->SetExposureSettings(ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE, exposure);
+
+	// Set the provided exposure mode, assuming it's passed correctly as an argument.
+	exposure->SetExposureMode(exposureMode);
+
+	// Set the provided EV Bias. Range is typically -80 to +80, but this should be validated by the caller or within this function.
+	exposure->SetEVBias(bias);
+
+	// Set the provided ISO value. The acceptable range depends on the camera, but 800 is a common choice for indoor or low-light conditions.
+	exposure->SetIso(iso);
+
+	// Set the provided Shutter Speed. This is expressed as a fraction of a second.
+	exposure->SetShutterSpeed(shutterSpeed);
+
+	// Attempt to apply the new exposure settings to the camera.
+	auto ret = mCamera->SetExposureSettings(functionMode, exposure);
 	if (ret)
 	{
-		auto exposure_settings = mCamera->GetExposureSettings(ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE);
-		std::cout << "success! ISO " << exposure_settings->Iso() << ", WB = " << exposure_settings->ShutterSpeed()
-				  << ", ExposureMode = " << exposure_settings->ExposureMode() << std::endl;
+		auto exposure_settings = mCamera->GetExposureSettings(functionMode);
+		std::cout << "Success! ISO " << exposure_settings->Iso() << ", Shutter Speed = " << exposure_settings->ShutterSpeed()
+				  << ", Exposure Mode = " << exposure_settings->ExposureMode() << std::endl;
 	}
 	else
 	{
-		std::cerr << "failed to set exposure" << std::endl;
+		std::cerr << "Failed to set exposure settings." << std::endl;
 	}
 }
-void LeticoCamera::setCaptureSettings()
+std::shared_ptr<ins_camera::ExposureSettings> LeticoCamera::getExposureSettings(ins_camera::CameraFunctionMode functionMode)
+{
+	return mCamera->GetExposureSettings(functionMode);
+}
+
+void LeticoCamera::setCaptureSettings(
+	int contrast, int saturation, int brightness, int sharpness, ins_camera::PhotographyOptions_WhiteBalance wbValue, ins_camera::CameraFunctionMode functionMode
+)
 {
 	auto settings = std::make_shared<ins_camera::CaptureSettings>();
-	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Saturation, 0);
-	settings->SetWhiteBalance(ins_camera::PhotographyOptions_WhiteBalance_WB_4000K);
-	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Brightness, 100);
-	auto ret = mCamera->SetCaptureSettings(ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE, settings);
+	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Contrast, contrast);
+	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Saturation, saturation);
+	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Brightness, brightness);
+	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Sharpness, sharpness);
+	settings->SetWhiteBalance(wbValue);
+
+	auto ret = mCamera->SetCaptureSettings(functionMode, settings);
 	if (ret)
 	{
-		auto capture_settings = mCamera->GetCaptureSettings(ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE);
+		auto capture_settings = mCamera->GetCaptureSettings(functionMode);
 		std::cout << "success!" << std::endl;
 	}
 	else
@@ -197,15 +214,20 @@ void LeticoCamera::setCaptureSettings()
 		std::cerr << "failed to set capture settings" << std::endl;
 	}
 }
-
-void LeticoCamera::getUUID()
+std::shared_ptr<ins_camera::CaptureSettings> LeticoCamera::getCaptureSettings(ins_camera::CameraFunctionMode functionMode)
 {
-	const auto str_uuid = mCamera->GetCameraUUID();
+	return mCamera->GetCaptureSettings(functionMode);
+}
+std::string LeticoCamera::getUUID()
+{
+	auto str_uuid = mCamera->GetCameraUUID();
 	if (str_uuid.empty())
 	{
 		std::cerr << "failed to get uuid" << std::endl;
+		return "";
 	}
 	std::cout << "uuid : " << str_uuid << std::endl;
+	return str_uuid;
 }
 
 void LeticoCamera::takePhotoAndDownload()
@@ -235,18 +257,85 @@ void LeticoCamera::takePhotoAndDownload()
 	mCamera->Close();
 }
 
-void LeticoCamera::getCurrentCaptureStatus()
+json LeticoCamera::getCurrentCaptureStatus()
 {
 	auto ret = mCamera->GetCaptureCurrentStatus();
 	if (ret == ins_camera::CaptureStatus::NOT_CAPTURE)
 	{
 		std::cout << "current statue : not capture" << std::endl;
-		;
 	}
 	else
 	{
 		std::cout << "current statue : capture" << std::endl;
 	}
+	json result;
+	switch (ret)
+	{
+	case ins_camera::CaptureStatus::NOT_CAPTURE:
+		result = {{"status", "not capture"}};
+		break;
+	case ins_camera::CaptureStatus::NORMAL_CAPTURE:
+		result = {{"status", "normal capture"}};
+		break;
+	case ins_camera::CaptureStatus::TIMELAPSE_CAPTURE:
+		result = {{"status", "timelapse capture"}};
+		break;
+	case ins_camera::CaptureStatus::INTERVAL_SHOOTING_CAPTURE:
+		result = {{"status", "interval shooting capture"}};
+		break;
+	case ins_camera::CaptureStatus::SINGLE_SHOOTING:
+		result = {{"status", "single shooting"}};
+		break;
+	case ins_camera::CaptureStatus::HDR_SHOOTING:
+		result = {{"status", "HDR shooting"}};
+		break;
+	case ins_camera::CaptureStatus::SELF_TIMER_SHOOTING:
+		result = {{"status", "SELF TIMER SHOOTING"}};
+		break;
+	case ins_camera::CaptureStatus::BULLET_TIME_CAPTURE:
+		result = {{"status", "BULLET TIME CAPTURE"}};
+		break;
+	case ins_camera::CaptureStatus::SETTINGS_NEW_VALUE:
+		result = {{"status", "SETTINGS NEW VALUE"}};
+		break;
+	case ins_camera::CaptureStatus::HDR_CAPTURE:
+		result = {{"status", "HDR CAPTURE"}};
+		break;
+	case ins_camera::CaptureStatus::BURST_SHOOTING:
+		result = {{"status", "BURST SHOOTING"}};
+		break;
+	case ins_camera::CaptureStatus::STATIC_TIMELAPSE_SHOOTING:
+		result = {{"status", "STATIC TIMELAPSE SHOOTING"}};
+		break;
+	case ins_camera::CaptureStatus::INTERVAL_VIDEO_CAPTURE:
+		result = {{"status", "INTERVAL VIDEO CAPTURE"}};
+		break;
+	case ins_camera::CaptureStatus::TIMESHIFT_CAPTURE:
+		result = {{"status", "TIMESHIFT CAPTURE"}};
+		break;
+	case ins_camera::CaptureStatus::AEB_NIGHT_SHOOTING:
+		result = {{"status", "AEB NIGHT SHOOTING"}};
+		break;
+	case ins_camera::CaptureStatus::SINGLE_POWER_PANO_SHOOTING:
+		result = {{"status", "SINGLE POWER PANO SHOOTING"}};
+		break;
+	case ins_camera::CaptureStatus::HDR_POWER_PANO_SHOOTING:
+		result = {{"status", "HDR POWER PANO SHOOTING"}};
+		break;
+	case ins_camera::CaptureStatus::SUPER_NORMAL_CAPTURE:
+		result = {{"status", "SUPER NORMAL CAPTURE"}};
+		break;
+	case ins_camera::CaptureStatus::LOOP_RECORDING_CAPTURE:
+		result = {{"status", "LOOP RECORDING CAPTURE"}};
+		break;
+	case ins_camera::CaptureStatus::STARLAPSE_SHOOTING:
+		result = {{"status", "STARLAPSE SHOOTING"}};
+		break;
+	default:
+		result = {{"status", "unknown"}};
+		break;
+	}
+	return result;
 }
 
 void LeticoCamera::startTimelapse()
@@ -293,38 +382,81 @@ void LeticoCamera::stopTimelapse()
 	}
 }
 
-void LeticoCamera::getBatteryStatus()
+json LeticoCamera::getBatteryStatus()
 {
+	json result;
+
 	if (!mCamera->IsConnected())
 	{
-		std::cout << "device is offline" << std::endl;
+		result["error"] = "Device is offline";
+		return result;
 	}
 
 	ins_camera::BatteryStatus status;
 	bool ret = mCamera->GetBatteryStatus(status);
+
 	if (!ret)
 	{
-		std::cerr << "GetBatteryStatus failed" << std::endl;
+		result["error"] = "GetBatteryStatus failed";
+		return result;
 	}
-	std::cout << "PowerType : " << status.power_type << std::endl;
-	std::cout << "battery_level : " << status.battery_level << "%" << std::endl;
-	std::cout << "battery_scale : " << status.battery_scale << std::endl;
+
+	std::string powerType = status.power_type == ins_camera::PowerType::BATTERY ? "Battery" : "Adapter";
+
+	result["PowerType"] = powerType;
+	result["battery_level"] = std::to_string(status.battery_level) + "%";
+	result["battery_scale"] = status.battery_scale;
+
+	return result;
 }
 
-void LeticoCamera::getStorageInfo()
+json LeticoCamera::getStorageInfo()
 {
+	json result;
+
 	ins_camera::StorageStatus status;
 	bool ret = mCamera->GetStorageState(status);
 	if (!ret)
 	{
-		std::cerr << "GetBatteryStatus failed" << std::endl;
+		result["error"] = "GetStorageState failed";
+		return result;
 	}
 	std::cout << "free_space : " << status.free_space / 1000000000.0 << "GB" << std::endl;
 	std::cout << "total_space : " << status.total_space / 1000000000.0 << "GB" << std::endl;
 	std::cout << "state : " << status.state << std::endl;
+
+	result["free_space_GB"] = status.free_space / 1000000000.0;	 // Convert to GB
+	result["total_space_GB"] = status.total_space / 1000000000.0;  // Convert to GB
+
+	switch (status.state)
+	{
+	case ins_camera::CardState::STOR_CS_PASS:
+		result["state"] = "Pass";
+		break;
+	case ins_camera::CardState::STOR_CS_NOCARD:
+		result["state"] = "No Card";
+		break;
+	case ins_camera::CardState::STOR_CS_NOSPACE:
+		result["state"] = "No Space";
+		break;
+	case ins_camera::CardState::STOR_CS_INVALID_FORMAT:
+		result["state"] = "Invalid Format";
+		break;
+	case ins_camera::CardState::STOR_CS_WPCARD:
+		result["state"] = "Write Protected Card";
+		break;
+	case ins_camera::CardState::STOR_CS_OTHER_ERROR:
+		result["state"] = "Other Error";
+		break;
+	default:
+		result["state"] = "Unknown State";
+		break;
+	}
+
+	return result;
 }
 
-std::string LeticoCamera::startRecording()	//returning errorMessage, if "" - no error
+std::string LeticoCamera::startRecording(int bitrate, ins_camera::VideoResolution resolution, ins_camera::CameraFunctionMode functionMode)
 {
 	auto errorMessage = "";
 	if (!mCamera)
@@ -335,10 +467,10 @@ std::string LeticoCamera::startRecording()	//returning errorMessage, if "" - no 
 	}
 
 	ins_camera::RecordParams record_params;
-	record_params.resolution = ins_camera::VideoResolution::RES_3040_3040P24;
-	record_params.bitrate = 1024 * 1024 * 10;  // Example bitrate setting
+	record_params.resolution = resolution;
+	record_params.bitrate = bitrate;
 
-	if (!mCamera->SetVideoCaptureParams(record_params, ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_VIDEO))
+	if (!mCamera->SetVideoCaptureParams(record_params, functionMode))
 	{
 		errorMessage = "Failed to set capture settings.";
 		std::cerr << errorMessage << std::endl;

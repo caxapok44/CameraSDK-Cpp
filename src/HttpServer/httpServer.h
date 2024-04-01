@@ -1,5 +1,6 @@
 
 #include <httplib.h>
+
 #include <cstddef>
 #include <json.hpp>
 #include <memory>
@@ -8,15 +9,22 @@
 #include <vector>
 
 #include "../LeticoCamera/leticoCamera.h"
+#include "../utils.hpp"
 
 using json = nlohmann::json;
 namespace Letico
 {
 
-
 	class LeticoHttpServer
 	{
 	public:
+		enum ResponseStatus
+		{
+			OK = 200,
+			BAD_REQUEST = 400,
+			NOT_FOUND = 404,
+			INTERNAL_SERVER_ERROR =500,
+		};
 		enum RequestType
 		{
 			GET,
