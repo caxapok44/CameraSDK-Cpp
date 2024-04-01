@@ -17,8 +17,6 @@ The base URL for the API is: http://localhost:9091
 ### Get Serial Numbers
 - **URL**: /api/v1/serialNumbers
 - **Method**: GET
-- **Query Parameters**:
-    - index (optional): Index of the camera from which to retrieve serial numbers. Defaults to 0 if not provided.
 - **Description**: Retrieves the serial numbers of all cameras.
 - **Request Body**: None
 - **Success Response**:
@@ -28,6 +26,25 @@ The base URL for the API is: http://localhost:9091
         - "serialNumbers": An array of strings, each representing a serial number of the camera(s).
 - **Error Response**:
     - Code: 400 Bad Request
+    - Content: A JSON object with the following fields:
+        - "status": A string indicating the request status ("error").
+        - "message": A string detailing the error encountered.
+### Get Media
+- **URL**: /api/v1/getMedia
+- **Method**: POST
+- **Required Parameters**:
+    - fileName: File path of the media on the machine. eg 'homeUrl' from /api/v1/takePhoto response.
+- **Description**: Initiates uploading photo on localhost.
+- **Success Response**:
+    - Code: 200 OK
+    - Content: A JSON object with the following fields:
+        - "status": A string indicating the request status ("success").
+        - "message": A string with a confirmation message ("Photo taken successfully").
+        - "deviceUrl": A string representing the URL to the photo on the device.
+        - "homeUrl": A string representing the local filesystem path where the photo was saved.
+        - "wwwUrl": A string representing a publicly accessible URL to the photo (if applicable).
+- **Error Response**:
+    - Code: 404 File not found.
     - Content: A JSON object with the following fields:
         - "status": A string indicating the request status ("error").
         - "message": A string detailing the error encountered.
@@ -71,6 +88,10 @@ The base URL for the API is: http://localhost:9091
 - **Method**: POST
 - **Required Parameters**:
     - cameraIndex: Index of the camera to start recording.
+- **Optional Parameters**:
+    - bitrate: Bitrate value. Default value 1024x1024x10 if not set.
+    - resolution: Resolution value from VideoResolution enum. Default value VideoResolution::RES_3040_3040P24 if not set.
+    - functionMode: Camera function mode from CameraFunctionMode enum. Default value CameraFunctionMode::FUNCTION_MODE_NORMAL_VIDEO  if not set.
 - **Description**: Starts recording on the specified camera.
 - **Success Response**:
     - Code: 200 OK
@@ -101,3 +122,489 @@ The base URL for the API is: http://localhost:9091
     - Content: JSON object with error details.
         - "status": A string indicating the request status ("error").
         - "message": A string detailing the error encountered, such as "Invalid camera index" or "Failed to stop recording."
+
+### Delete File
+- **URL**: /api/v1/deleteFile
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera from which to delete the file.
+    - `fileToDelete`: The name or path of the file to be deleted on the camera.
+- **Description**: Deletes a specified file from the given camera. This endpoint allows for the removal of a file based on its name or path from the specified camera's storage.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object indicating successful deletion.
+        - `"status"`: A string indicating the request status ("success").
+        - `"message"`: A confirmation message ("Deletion successful").
+        - `"deletedFile"`: The name or path of the file that was successfully deleted.
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object with error details.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the error encountered, such as "Invalid camera index".
+
+### Download File
+- **URL**: /api/v1/downloadFile
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera from which to download the file.
+    - `fileToDownload`: The name or path of the file to be downloaded from the camera.
+- **Description**: Downloads a specified file from the given camera. This endpoint facilitates the downloading of a file based on its name or path from the specified camera's storage, saving it to a server-local directory.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object indicating successful download.
+        - `"status"`: A string indicating the request status ("success").
+        - `"message"`: A confirmation message ("File downloaded successfully").
+        - `"deviceUrl"`: The name or path of the file that was requested for download.
+        - `"folderUrl"`: The local server path where the file was saved after downloading.
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object with error details.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the error encountered, such as "Invalid camera index".
+
+### Start Live Stream
+- **URL**: /api/v1/startLiveStream
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to start live streaming.
+- **Description**: Initiates a live stream from the specified camera. This endpoint is responsible for starting the preview live stream feature of a camera based on its index in the camera array.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object indicating the successful initiation of the live stream.
+        - `"status"`: A string indicating the request status ("success").
+        - `"message"`: A confirmation message ("Start streaming successfully").
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object with error details for invalid camera index.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the error encountered, such as "Invalid camera index".
+    - **Code**: 500 Internal Server Error
+    - **Content**: JSON object with error details for failure in starting the live stream.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the internal error encountered while attempting to start the live stream.
+
+### Stop Live Stream
+- **URL**: /api/v1/stopLiveStream
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to stop live streaming.
+- **Description**: Terminates an ongoing live stream from the specified camera. This endpoint is designed to stop the preview live stream feature of a camera based on its index in the camera array.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object indicating the successful termination of the live stream.
+        - `"status"`: A string indicating the request status ("success").
+        - `"message"`: A confirmation message ("Stop streaming successfully").
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object with error details for invalid camera index.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the error encountered, such as "Invalid camera index".
+    - **Code**: 500 Internal Server Error (if applicable)
+    - **Content**: JSON object with error details for failure in stopping the live stream.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the internal error encountered while attempting to stop the live stream.
+
+### Get Serial Number
+- **URL**: /api/v1/getSerialNumber
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to retrieve the serial number from.
+- **Description**: Retrieves the serial number of the specified camera. This endpoint is designed to fetch the serial number for a camera based on its index in the camera array, providing a simple method to identify devices programmatically.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object indicating the successful retrieval of the camera's serial number.
+        - `"status"`: A string indicating the request status ("success").
+        - `"serialNumber"`: The serial number of the specified camera.
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object with error details for invalid camera index or other exceptions.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the encountered error, such as "Invalid camera index" or specific exception messages.
+
+### Get Battery Info
+- **URL**: /api/v1/getBatteryInfo
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to retrieve the battery information from.
+- **Description**: Fetches the battery status of the specified camera. This endpoint aims to provide detailed information about the camera's battery, such as charge level, health, and status, depending on the camera model and the information available through the `getBatteryStatus` method.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object containing detailed battery information.
+        - `"status"`: A string indicating the request status ("success").
+        - `"data"`: A JSON object containing the battery information retrieved from the camera. The structure of this object may vary based on what `getBatteryStatus` returns but generally includes details such as battery level, charging status, and possibly temperature.
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object for invalid camera index.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the error encountered, such as "Invalid camera index".
+    - **Code**: 500 Internal Server Error
+    - **Content**: JSON object for internal errors encountered while retrieving battery information.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A more specific error message detailing why the battery status could not be retrieved, based on the `getBatteryStatus` method's output.
+
+### Get Storage Info
+- **URL**: /api/v1/getStorageInfo
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to retrieve the storage information from.
+- **Description**: Obtains the storage status of the specified camera. This endpoint is designed to provide essential information about the camera's storage, such as available space, total capacity, and possibly the format of the storage media, depending on the camera model and the information available through the `getStorageInfo` method.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object containing detailed storage information.
+        - `"status"`: A string indicating the request status ("success").
+        - `"data"`: A JSON object containing the storage information retrieved from the camera. The structure of this object may vary based on what - -        `getStorageInfo` returns but generally includes details such as free space, total space, and the storage state.
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object for invalid camera index.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the error encountered, such as "Invalid camera index".
+    - **Code**: 500 Internal Server Error
+    - **Content**: JSON object for internal errors encountered while retrieving storage information.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A more specific error message detailing why the storage information could not be retrieved,
+
+### Get UUID
+- **URL**: /api/v1/getUUID
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to retrieve the UUID from.
+- **Description**: Obtains the Universal Unique Identifier (UUID) of the specified camera. This endpoint is intended to provide a unique identifier for a camera based on its index in the camera array, aiding in device identification and management.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object indicating the successful retrieval of the camera's UUID.
+        - `"status"`: A string indicating the request status ("success").
+        - `"uuid"`: The UUID of the specified camera.
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object for invalid camera index.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the encountered error, such as "Invalid camera index".
+    - **Code**: 500 Internal Server Error
+    - **Content**: JSON object for failures in retrieving the UUID.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the error encountered while attempting to retrieve the UUID, such as "Failed to get UUID".
+
+
+### Get Current Capture Status
+- **URL**: /api/v1/getCurrentCaptureStatus
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to retrieve the current capture status from.
+- **Description**: Retrieves the current capture status of the specified camera. This endpoint provides information about whether the camera is currently capturing (e.g., recording video, taking a photo, in timelapse mode), along with any specific capture mode details.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object containing the current capture status.
+        - `"status"`: A string indicating the request status ("success").
+        - `"data"`: A JSON object containing details of the current capture status, which may include capture mode, recording state, and other relevant information depending on the camera model and capabilities.
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object for invalid camera index or other input errors.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the encountered error, such as "Invalid camera index".
+
+### Set Exposure Settings
+- **URL**: /api/v1/setExposureSettings
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to adjust exposure settings for.
+- **Optional Parameters**:
+    - `bias`: Exposure value bias setting. Defaults to the camera's current setting or 0 if unavailable.
+    - `shutterSpeed`: Shutter speed setting, expressed as a fraction of a second. Defaults to the camera's current setting or 1/120 if unavailable.
+    - `iso`: ISO sensitivity setting. Defaults to the camera's current setting or 800 if unavailable.
+    - `exposureMode`: Exposure mode setting, represented as an integer mapped to **PhotographyOptions_ExposureMode enum**. Defaults to the camera's current setting or PhotographyOptions_ExposureOptions_Program_AUTO if unavailable.
+    - `functionMode`: Camera function mode setting, represented as an integer mapped to **CameraFunctionMode enum**. Defaults to `FUNCTION_MODE_NORMAL_IMAGE`.
+- **Description**: Adjusts the exposure settings of a specified camera. This endpoint allows for detailed control over the camera's exposure settings for particular function mode, which you gonna use later on recording, including exposure bias, shutter speed, ISO sensitivity, and the mode of exposure.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object indicating the successful update of exposure settings.
+        - `"status"`: A string indicating the request status ("success").
+        - `"message"`: A confirmation message ("Exposure settings updated successfully").
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object for missing or invalid parameters.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the encountered error, such as "Camera index is required" or "Invalid camera index".
+    - **Code**: 500 Internal Server Error
+    - **Content**: JSON object for failures in setting exposure settings.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A more detailed error message, potentially including technical details about the failure, such as "Failed to set exposure settings".
+
+### Set Capture Settings
+- **URL**: /api/v1/setCaptureSettings
+- **Method**: POST
+- **Required Parameters**:
+    - `cameraIndex`: Index of the camera to adjust capture settings for.
+- **Optional Parameters**:
+    - `contrast`: The contrast setting value. Defaults to the camera's current setting or a predetermined value.
+    - `saturation`: The saturation setting value. Defaults to the camera's current setting or a predetermined value.
+    - `brightness`: The brightness setting value. Defaults to the camera's current setting or a predetermined value.
+    - `sharpness`: The sharpness setting value. Defaults to the camera's current setting or a predetermined value.
+    - `wbValue`: White balance setting, represented as an integer mapped to **PhotographyOptions_WhiteBalance enum**. Defaults to the camera's current setting or PhotographyOptions_WhiteBalance_WB_AUTO if unavailable.
+    - `functionMode`: Camera function mode setting, represented as an integer mapped to **CameraFunctionMode enum**. Defaults to `FUNCTION_MODE_NORMAL_IMAGE`.
+- **Description**: Adjusts the capture settings of a specified camera. This endpoint provides control over various aspects of the camera's image capturing settings, such as contrast, saturation, brightness, sharpness, white balance, and the camera's functional mode.
+- **Success Response**:
+    - **Code**: 200 OK
+    - **Content**: JSON object indicating the successful update of capture settings.
+        - `"status"`: A string indicating the request status ("success").
+        - `"message"`: A confirmation message ("Capture settings updated successfully").
+- **Error Response**:
+    - **Code**: 400 Bad Request
+    - **Content**: JSON object for missing or invalid parameters.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A string detailing the encountered error, such as "Camera index is required" or "Invalid camera index".
+    - **Code**: 500 Internal Server Error
+    - **Content**: JSON object for failures in setting capture settings.
+        - `"status"`: A string indicating the request status ("error").
+        - `"message"`: A detailed error message, potentially including technical details about the failure, such as "Failed to set capture settings".
+
+## Enums
+- **enum VideoResolution**{
+    - RES_3840_1920P30 = 0,
+    - RES_2560_1280P30 = 1,
+    - RES_1920_960P30 = 2,
+    - RES_2560_1280P60 = 3,
+    - RES_2048_512P120 = 4,
+    - RES_3328_832P60 = 5,
+    - RES_3072_1536P30 = 6,
+    - RES_2240_1120P30 = 7,
+    - RES_2240_1120P24 = 8,
+    - RES_1440_720P30 = 9,
+    - RES_2880_2880P30 = 10,
+    - RES_3840_1920P60 = 11,
+    - RES_3840_1920P50 = 12,
+    - RES_3008_1504P100 = 13,
+    - RES_960_480P30 = 14,
+    - RES_3040_1520P30 = 15,
+    - RES_2176_1088P30 = 16,
+    - RES_720_360P30 = 17,
+    - RES_480_240P30 = 18,
+    - RES_2880_2880P25 = 19,
+    - RES_2880_2880P24 = 20,
+    - RES_3840_1920P20 = 21,
+    - RES_1920_960P20 = 22,
+    - RES_3840_2160P60 = 23,
+    - RES_3840_2160P30 = 24,
+    - RES_2720_1530P100 = 25,
+    - RES_1920_1080P200 = 26,
+    - RES_1920_1080P240 = 27,
+    - RES_1920_1080P120 = 28,
+    - RES_1920_1080P30 = 29,
+    - RES_5472_3078P30 = 30,
+    - RES_4000_3000P30 = 31,
+    - RES_854_640P30 = 32,
+    - RES_720_406P30 = 33,
+    - RES_424_240P15 = 34,
+    - RES_1024_512P30 = 35,
+    - RES_640_320P30 = 36,
+    - RES_5312_2988P30 = 37,
+    - RES_2720_1530P60 = 38,
+    - RES_2720_1530P30 = 39,
+    - RES_1920_1080P60 = 40,
+    - RES_2720_2040P30 = 41,
+    - RES_1920_1440P30 = 42,
+    - RES_1280_720P30 = 43,
+    - RES_1280_960P30 = 44,
+    - RES_1152_768P30 = 45,
+    - RES_5312_2988P25 = 46,
+    - RES_5312_2988P24 = 47,
+    - RES_3840_2160P25 = 48,
+    - RES_3840_2160P24 = 49,
+    - RES_2720_1530P25 = 50,
+    - RES_2720_1530P24 = 51,
+    - RES_1920_1080P25 = 52,
+    - RES_1920_1080P24 = 53,
+    - RES_4000_3000P25 = 54,
+    - RES_4000_3000P24 = 55,
+    - RES_2720_2040P25 = 56,
+    - RES_2720_2040P24 = 57,
+    - RES_1920_1440P25 = 58,
+    - RES_1920_1440P24 = 59,
+    - RES_2560_1440P30 = 60,
+    - RES_2560_1440P60 = 61,
+    - RES_1920_1440P60 = 62,
+    - RES_1440_2560P30 = 63,
+    - RES_1080_1920P30 = 64,
+    - RES_1440_1920P30 = 65,
+    - RES_1440_2560P60 = 66,
+    - RES_1440_1920P60 = 67,
+    - RES_1080_1920P60 = 68,
+    - RES_2560_1440P25 = 69,
+    - RES_1440_2560P25 = 70,
+    - RES_1080_1920P25 = 71,
+    - RES_720_1280P30 = 72,
+    - RES_960_1280P30 = 73,
+    - RES_1152_1152P30 = 74,
+    - RES_640_360P30 = 75,
+    - RES_640_480P30 = 76,
+    - RES_360_640P30 = 77,
+    - RES_480_640P30 = 78,
+    - RES_368_368P30 = 79,
+    - RES_854_854P30 = 80,
+    - RES_1920_1080P50 = 81,
+    - RES_1080_1920P50 = 82,
+    - RES_2560_1440P50 = 83,
+    - RES_1440_2560P50 = 84,
+    - RES_1080_1920P24 = 85,
+    - RES_2560_1440P24 = 86,
+    - RES_1440_2560P24 = 87,
+    - RES_1080_1920P120 = 88,
+    - RES_1280_1280P30 = 89,
+    - RES_2880_2880P15 = 90,
+    - RES_1440_720P15 = 91,
+    - RES_3840_2160P50 = 92,
+    - RES_1280_1280P25 = 93,
+    - RES_3040_3040P24 = 94,
+    - RES_3040_3040P25 = 95,
+    - RES_3040_3040P30 = 96,
+    - RES_3840_1920P24 = 97,
+    - RES_3840_1920P25 = 98,
+    - RES_3040_1520P50 = 99,
+    - RES_2720_1530P50 = 100,
+    - RES_5312_3552P24 = 101,
+    - RES_5312_3552P25 = 102,
+    - RES_5312_3552P30 = 103,
+    - RES_5472_2328P24 = 104,
+    - RES_5472_2328P25 = 105,
+    - RES_5472_2328P30 = 106,
+    - RES_1600_900P30 = 107,
+    - RES_1760_990P30 = 108,
+    - RES_3840_1634P30 = 109,
+    - RES_3840_1634P25 = 110,
+    - RES_3840_1634P24 = 111,
+    - RES_6720_2856P25 = 112,
+    - RES_6720_2856P24 = 113,
+    - RES_6016_2560P25 = 114,
+    - RES_6016_2560P24 = 115,
+    - RES_3200_3200P24 = 116,
+    - RES_3200_3200P25 = 117,
+    - RES_3200_3200P30 = 118,
+    - RES_3072_3072P24 = 119,
+    - RES_3072_3072P25 = 120,
+    - RES_3072_3072P30 = 121,
+    - RES_2160_3840P60 = 122,
+    - RES_2160_3840P50 = 123,
+    - RES_2160_3840P30 = 124,
+    - RES_2160_3840P25 = 125,
+    - RES_2160_3840P24 = 126,
+    - RES_2880_2880P5 = 127,
+    - RES_2880_2880P2 = 128,
+    - RES_2880_2880P1 = 129,
+    - RES_2880_2880P05 = 130,
+    - RES_3000_1500P120 = 131,
+    - RES_1530_2720P60 = 132,
+    - RES_1530_2720P50 = 133,
+    - RES_1530_2720P30 = 134,
+    - RES_1530_2720P25 = 135,
+    - RES_1530_2720P24 = 136,
+    - RES_3840_960P120 = 137,
+    - RES_1152_648P30 = 138,
+    - RES_648_1152P30 = 139,
+    - RES_1152_864P30 = 140,
+    - RES_864_1152P30 = 141,
+    - RES_2944_2880P30 = 142,
+    - RES_3920_1920P30 = 143,
+    - RES_4000_2000P24 = 144,
+    - RES_4000_2000P25 = 145,
+    - RES_4000_2000P30 = 146,
+    - RES_4000_2000P50 = 147,
+    - RES_4000_2000P60 = 148,
+    - RES_1530_2720P100 = 149,
+    - RES_1920_1080P100 = 150,
+    - RES_1080_1920P100 = 151,
+    - RES_4000_3000P50 = 152,
+    - RES_4000_3000P60 = 153,
+    - RES_7680_4320P30 = 154,
+    - RES_2944_736P200 = 155,
+    - RES_3456_1944P24 = 156,
+    - RES_3456_1944P25 = 157,
+    - RES_3456_1944P30 = 158,
+    - RES_3456_1944P50 = 159,
+    - RES_3456_1944P60 = 160,
+    - RES_1944_3456P24 = 161,
+    - RES_1944_3456P25 = 162,
+    - RES_1944_3456P30 = 163,
+    - RES_2944_736P180 = 164,
+    - RES_3840_3840P24 = 165,
+    - RES_3840_3840P25 = 166,
+    - RES_3840_3840P30 = 167,
+    - RES_3584_2400P24 = 168,
+    - RES_3584_2400P25 = 169,
+    - RES_3584_2400P30 = 170,
+    - RES_3584_2400P50 = 171,
+    - RES_3584_2400P60 = 172,
+    - RES_2400_3584P24 = 173,
+    - RES_2400_3584P25 = 174,
+    - RES_2400_3584P30 = 175,
+    - RES_2400_3584P50 = 176,
+    - RES_2400_3584P60 = 177,
+    - RES_2880_1440P24 = 178,
+    - RES_2880_1440P25 = 179,
+    - RES_2880_1440P30 = 180,
+    - RES_2880_1440P50 = 181,
+    - RES_2880_1440P60 = 182,
+    - RES_1440_2880P24 = 183,
+    - RES_1440_2880P25 = 184,
+    - RES_1440_2880P30 = 185,
+    - RES_1440_2880P50 = 186,
+    - RES_1440_2880P60 = 187,
+    - RES_2944_2944P30 = 188,
+    - RES_2944_2944P25 = 189,
+    - RES_2944_2944P24 = 190,
+    - RES_1472_1472P30 = 191,
+    - RES_3584_2016P30 = 192,
+    - RES_3584_2016P25 = 193,
+    - RES_3584_2016P24 = 194,
+    - RES_2016_3584P30 = 195,
+    - RES_2016_3584P25 = 196,
+    - RES_2016_3584P24 = 197,
+    - RES_2880_720P30 = 198,
+    - RES_3584_2016P50 = 199,
+    - RES_3584_2016P60 = 200,
+    - RES_2016_3584P50 = 201,
+    - RES_2016_3584P60 = 202,
+    - RES_3840_2880P30 = 203,
+    - RES_3840_2880P25 = 204,
+    - RES_3840_2880P24 = 205,
+	};
+- **enum CameraFunctionMode** {
+    - FUNCTION_MODE_NORMAL = 0,
+    - FUNCTION_MODE_LIVE_STREAM = 1,
+    - FUNCTION_MODE_MOBILE_TIMELAPSE = 2,
+    - FUNCTION_MODE_INTERVAL_SHOOTING = 3,
+    - FUNCTION_MODE_HIGH_FRAME_RATE = 4,
+    - FUNCTION_MODE_BURST = 5,
+    - FUNCTION_MODE_NORMAL_IMAGE = 6,
+    - FUNCTION_MODE_NORMAL_VIDEO = 7,
+    - FUNCTION_MODE_HDR_IMAGE = 8,   // HDR Image
+    - FUNCTION_MODE_HDR_VIDEO = 9,
+    - FUNCTION_MODE_INTERVAL_VIDEO = 10,
+    - FUNCTION_MODE_STATIC_TIMELAPSE = 11,
+    - FUNCTION_MODE_TIMESHIFT = 12,
+    - FUNCTION_MODE_AEB_NIGHT_IMAGE = 13,
+    - FUNCTION_MODE_NORMAL_POWER_PANO_IMAGE = 14,
+    - FUNCTION_MODE_HDR_POWER_PANO_IMAGE = 15,
+    - FUNCTION_MODE_SUPER_VIDEO = 16,
+    - FUNCTION_MODE_LOOP_RECORDING_VIDEO = 17,
+    - FUNCTION_MODE_STARLAPSE_IMAGE = 18,
+    - FUNCTION_MODE_FPV_VIDEO = 19,
+    - FUNCTION_MODE_MOVIE_VIDEO = 20,
+    - FUNCTION_MODE_SLOWMOTION_VIDEO = 21,
+    - FUNCTION_MODE_SELFIE_VIDEO = 22,
+	};
+- **enum PhotographyOptions_ExposureMode** {
+    - PhotographyOptions_ExposureOptions_Program_AUTO = 0,
+    - PhotographyOptions_ExposureOptions_Program_ISO_PRIORITY = 1,
+    - PhotographyOptions_ExposureOptions_Program_SHUTTER_PRIORITY = 2,
+    - PhotographyOptions_ExposureOptions_Program_MANUAL = 3,
+    - PhotographyOptions_ExposureOptions_Program_ADAPTIVE = 4,
+    - PhotographyOptions_ExposureOptions_Program_FULL_AUTO = 5 // X3
+	};
+- **enum PhotographyOptions_WhiteBalance** {
+    - PhotographyOptions_WhiteBalance_WB_UNKNOWN = -1,
+    - PhotographyOptions_WhiteBalance_WB_AUTO = 0,
+    - PhotographyOptions_WhiteBalance_WB_2700K = 1,
+    - PhotographyOptions_WhiteBalance_WB_4000K = 2,
+    - PhotographyOptions_WhiteBalance_WB_5000K = 3,
+    - PhotographyOptions_WhiteBalance_WB_6500K = 4,
+    - PhotographyOptions_WhiteBalance_WB_7500K = 5
+	};

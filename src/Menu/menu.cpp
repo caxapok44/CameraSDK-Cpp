@@ -96,7 +96,10 @@ void Menu::handleOption(int option)
 		mCamera->stopRecording();
 		break;
 	case 8:
-		mCamera->setExposureSettings();
+		int bias;
+		std::cout << "please enter EVBIOS: ";
+		std::cin >> bias;
+		mCamera->setExposureSettings(bias);
 		break;
 	case 9:
 		mCamera->setCaptureSettings();

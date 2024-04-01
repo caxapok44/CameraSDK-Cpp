@@ -3,6 +3,7 @@
 #include "LeticoCamera/leticoCamera.h"
 #include "Menu/menu.h"
 
+
 int main()
 {
 	std::shared_ptr<LeticoCamera> camera = std::make_shared<LeticoCamera>();
