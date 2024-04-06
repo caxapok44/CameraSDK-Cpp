@@ -9,6 +9,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 #include "../utils.hpp"
 

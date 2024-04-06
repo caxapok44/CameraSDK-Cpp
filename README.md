@@ -1,5 +1,11 @@
 # install (libboost-all-dev)
 sudo apt-get install build-essential libtcmalloc-minimal4 && sudo ln -s /usr/lib/libtcmalloc_minimal.so.4 /usr/lib/libtcmalloc_minimal.so
+vcpkg install yaml-cpp
+
+sudo apt install nginx
+sudo ufw allow 'Nginx Full'
+sudo systemctl reload nginx
+sudo chmod o+x /home/ozinchenko
 
 # CameraSDK-Cpp
 CameraSDK-Cpp is a C++ library to control Insta360 cameras. 

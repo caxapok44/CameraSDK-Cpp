@@ -70,24 +70,37 @@ void LeticoCamera::deleteFile(const std::string &file_to_delete)
 
 std::string LeticoCamera::downloadFile(std::string file_to_download)
 {
-	//std::string file_to_save = Utils::getSavePath() / std::filesystem::path(file_to_download).filename();
-	std::string file_to_save = "/home/ozinchenko/insta360Photo/" / std::filesystem::path(file_to_download).filename();
-
-	std::cout << file_to_download << " will be saved to " << file_to_save << std::endl;
-	const auto ret = mCamera->DownloadCameraFile(
-		file_to_download,
-		file_to_save,
-		[](int64_t current, int64_t total_size)
-		{ std::cout << "current :" << current << "; total_size: " << total_size << std::endl; }
-	);
-	if (ret)
+	try
 	{
-		std::cout << "Download " << file_to_download << " succeed!!!" << std::endl;
-		return file_to_save;
-	}
+		YAML::Node config = YAML::LoadFile("config/service.yaml");
+		auto basePath = config["savePath"].as<std::string>();
 
-	std::cout << "Download " << file_to_download << " failed!!!" << std::endl;
-	return "";
+		std::filesystem::path file_to_save = basePath / std::filesystem::path(file_to_download).filename();
+		if (file_to_save.extension() == ".insv")
+		{
+			// Replace the extension with .mp4
+			file_to_save.replace_extension(".mp4");
+		}
+		std::cout << file_to_download << " will be saved to " << file_to_save.string() << std::endl;
+		const auto ret = mCamera->DownloadCameraFile(
+			file_to_download,
+			file_to_save.string(),
+			[](int64_t current, int64_t total_size)
+			{ std::cout << "current :" << current << "; total_size: " << total_size << std::endl; }
+		);
+		if (ret)
+		{
+			std::cout << "Download " << file_to_download << " succeed!!!" << std::endl;
+			return file_to_save.string();
+		}
+
+		std::cout << "Download " << file_to_download << " failed!!!" << std::endl;
+		return "";
+	}
+	catch (...)
+	{
+		return "";
+	}
 }
 
 std::vector<std::string> LeticoCamera::downloadFile(const std::vector<std::string> &files_to_download)
