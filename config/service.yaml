@@ -1,0 +1,6 @@
+savePath: "/home/ozinchenko/insta360Photo/"
+server:
+  address: "localhost"
+  port: 9091
+nginx:
+  mediaUrl: "localhost/media/"

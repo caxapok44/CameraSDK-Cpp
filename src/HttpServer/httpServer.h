@@ -44,5 +44,6 @@ namespace Letico
 
 		std::string mServerAddress;
 		int mPort;
+		std::string mNginxMediaUrl;
 	};
 }

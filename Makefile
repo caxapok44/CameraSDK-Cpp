@@ -15,7 +15,7 @@ TARGET := $(BINDIR)/CameraSDKTest
 CXXFLAGS := -Wall -std=c++20 -g -I$(INCDIR)
 
 # Linker flags
-LDFLAGS := -L$(LIBDIR) -lCameraSDK
+LDFLAGS := -L$(LIBDIR) -lCameraSDK -lyaml-cpp
 
 # Source files
 
@@ -46,6 +46,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cc
 clean:
 	rm -rf $(OBJDIR) $(TARGET)
 	rm -f  *.h264 *.ts *.m3u8
+	rm -rf .cache
 
 run: $(TARGET)
 	sudo LD_LIBRARY_PATH=$(LIBDIR) $(TARGET)

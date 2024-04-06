@@ -12,10 +12,32 @@
 using namespace Letico;
 
 LeticoHttpServer::LeticoHttpServer(std::vector<std::shared_ptr<LeticoCamera>> cameras):
-	mCameras(std::move(cameras)), mServerAddress("localhost"), mPort(9091)
+	mCameras(std::move(cameras))
 {
-	mServer = std::make_shared<httplib::Server>();
-	createServer();
+	 try {
+        YAML::Node config = YAML::LoadFile("config/service.yaml");
+
+        if (config["server"]) {
+            mServerAddress = config["server"]["address"].as<std::string>("localhost");
+            mPort = config["server"]["port"].as<int>(9091);
+            mNginxMediaUrl = config["nginx"]["mediaUrl"].as<std::string>("localhost");
+
+        } else {
+            std::cerr << "Server configuration not found in config.yaml. Using default values." << std::endl;
+            mServerAddress = "localhost";
+            mPort = 9091;
+			mNginxMediaUrl = "localhost/media/";
+        }
+    } catch (const YAML::Exception& e) {
+        std::cerr << "Error reading config.yaml: " << e.what() << std::endl;
+        mServerAddress = "localhost";
+        mPort = 9091;
+		mNginxMediaUrl = "localhost/media/";
+    }
+
+    mServer = std::make_shared<httplib::Server>();
+    createServer();
+	
 }
 LeticoHttpServer::~LeticoHttpServer()
 {
@@ -338,9 +360,10 @@ void LeticoHttpServer::createEndpoints()
 			auto folderUrls = mCameras[cameraIndex]->downloadFile(deviceUrls);
 			std::vector<std::string> wwwUrls;
 			wwwUrls.reserve(folderUrls.size());
-			for (auto folderUrl : folderUrls)
+			for (const auto& folderUrl : folderUrls)
 			{
-				wwwUrls.push_back(mServerAddress + ":" + std::to_string(mPort) + "/api/v1/getMedia?fileName=" + folderUrl);
+				auto fileName = std::filesystem::path(folderUrl).filename();
+				wwwUrls.push_back(mNginxMediaUrl + fileName.string());
 			}
 			jsonResponse = {
 				{"status", "success"},
@@ -395,10 +418,7 @@ void LeticoHttpServer::createEndpoints()
 			std::string fileToDownload = req.get_param_value("fileToDownload");
 			auto folderUrl = mCameras[cameraIndex]->downloadFile(fileToDownload);
 			jsonResponse = {
-				{"status", "success"},
-				{"message", "File downloaded successfully"},
-				{"deviceUrl", fileToDownload},
-				{"folderUrl", folderUrl}};
+				{"status", "success"}, {"message", "File downloaded successfully"}, {"deviceUrl", fileToDownload}, {"folderUrl", folderUrl}};
 
 			res.set_content(jsonResponse.dump(), "application/json");
 		}
