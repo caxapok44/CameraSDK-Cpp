@@ -53,7 +53,7 @@ public:
 	// 	 * - Brightness:-256~256, default 0
 	// 	 * - WhiteBalance: see #PhotographyOptions_WhiteBalance
 	// 	 * - Sharpness: 0~6, default 3
-	void setCaptureSettings(
+	std::string setCaptureSettings(
 		int contrast = 64,
 		int saturation = 64,
 		int brightness = 0,
@@ -76,6 +76,7 @@ private:
 	std::shared_ptr<ins_camera::Camera> mCamera;
 	std::vector<std::string> mSerialNumbersVec;
 	void discoverAndOpenCamera();
+	void reload();
 	std::string mSerialNumber;
 	size_t mCurrentDownloadIndex;
 };

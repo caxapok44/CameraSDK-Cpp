@@ -1,5 +1,7 @@
 #include "leticoCamera.h"
+#include <unistd.h>
 
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -205,27 +207,50 @@ std::shared_ptr<ins_camera::ExposureSettings> LeticoCamera::getExposureSettings(
 	return mCamera->GetExposureSettings(functionMode);
 }
 
-void LeticoCamera::setCaptureSettings(
+std::string LeticoCamera::setCaptureSettings(
 	int contrast, int saturation, int brightness, int sharpness, ins_camera::PhotographyOptions_WhiteBalance wbValue, ins_camera::CameraFunctionMode functionMode
 )
 {
+	std::cout << "2) Try to set for function " << functionMode << std::endl;
+	std::cout << "Contrast: " << contrast << std::endl;
+	std::cout << "Saturation: " << saturation << std::endl;
+	std::cout << "Brightness: " << brightness << std::endl;
+	std::cout << "Sharpness: " << sharpness << std::endl;
+	std::cout << "White and Black balance: " << wbValue << std::endl;
 	auto settings = std::make_shared<ins_camera::CaptureSettings>();
+	std::vector<ins_camera::CaptureSettings::SettingsType> settingsToApply = {
+		ins_camera::CaptureSettings::CaptureSettings_Contrast,
+		ins_camera::CaptureSettings::CaptureSettings_Saturation,
+		ins_camera::CaptureSettings::CaptureSettings_Brightness,
+		ins_camera::CaptureSettings::CaptureSettings_Sharpness,
+		ins_camera::CaptureSettings::CaptureSettings_WhiteBalance};
+	settings->UpdateSettingTypes(settingsToApply);
+
 	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Contrast, contrast);
 	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Saturation, saturation);
 	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Brightness, brightness);
 	settings->SetValue(ins_camera::CaptureSettings::CaptureSettings_Sharpness, sharpness);
 	settings->SetWhiteBalance(wbValue);
 
-	auto ret = mCamera->SetCaptureSettings(functionMode, settings);
-	if (ret)
+	if (mCamera->SetCaptureSettings(functionMode, settings))
 	{
+		this->reload();
 		auto capture_settings = mCamera->GetCaptureSettings(functionMode);
-		std::cout << "success!" << std::endl;
+		std::cout << "3) success for " << functionMode << std::endl;
+		std::cout << "Contrast: " << capture_settings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Contrast) << std::endl;
+		std::cout << "Saturation: " << capture_settings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Saturation)
+				  << std::endl;
+		std::cout << "Brightness: " << capture_settings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Brightness)
+				  << std::endl;
+		std::cout << "Sharpness: " << capture_settings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Sharpness)
+				  << std::endl;
+		std::cout << "White and Black balance: "
+				  << capture_settings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_WhiteBalance) << std::endl;
+		return "";
 	}
-	else
-	{
-		std::cerr << "failed to set capture settings" << std::endl;
-	}
+
+	std::cerr << "failed to set capture settings" << std::endl;
+	return "failed to set capture settings";
 }
 std::shared_ptr<ins_camera::CaptureSettings> LeticoCamera::getCaptureSettings(ins_camera::CameraFunctionMode functionMode)
 {
@@ -552,4 +577,10 @@ void LeticoCamera::discoverAndOpenCamera()
 	mSerialNumber = mCamera->GetSerialNumber();
 	std::cout << mCamera->GetHttpBaseUrl();
 	discovery.FreeDeviceDescriptors(list);
+}
+
+void LeticoCamera::reload()
+{
+	mCamera->Close();
+	discoverAndOpenCamera();
 }

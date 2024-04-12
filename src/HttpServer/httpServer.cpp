@@ -11,33 +11,36 @@
 
 using namespace Letico;
 
-LeticoHttpServer::LeticoHttpServer(std::vector<std::shared_ptr<LeticoCamera>> cameras):
-	mCameras(std::move(cameras))
+LeticoHttpServer::LeticoHttpServer(std::vector<std::shared_ptr<LeticoCamera>> cameras): mCameras(std::move(cameras))
 {
-	 try {
-        YAML::Node config = YAML::LoadFile("config/service.yaml");
+	try
+	{
+		YAML::Node config = YAML::LoadFile("config/service.yaml");
 
-        if (config["server"]) {
-            mServerAddress = config["server"]["address"].as<std::string>("localhost");
-            mPort = config["server"]["port"].as<int>(9091);
-            mNginxMediaUrl = config["nginx"]["mediaUrl"].as<std::string>("localhost");
-
-        } else {
-            std::cerr << "Server configuration not found in config.yaml. Using default values." << std::endl;
-            mServerAddress = "localhost";
-            mPort = 9091;
+		if (config["server"])
+		{
+			mServerAddress = config["server"]["address"].as<std::string>("localhost");
+			mPort = config["server"]["port"].as<int>(9091);
+			mNginxMediaUrl = config["nginx"]["mediaUrl"].as<std::string>("localhost");
+		}
+		else
+		{
+			std::cerr << "Server configuration not found in config.yaml. Using default values." << std::endl;
+			mServerAddress = "localhost";
+			mPort = 9091;
 			mNginxMediaUrl = "localhost/media/";
-        }
-    } catch (const YAML::Exception& e) {
-        std::cerr << "Error reading config.yaml: " << e.what() << std::endl;
-        mServerAddress = "localhost";
-        mPort = 9091;
+		}
+	}
+	catch (const YAML::Exception& e)
+	{
+		std::cerr << "Error reading config.yaml: " << e.what() << std::endl;
+		mServerAddress = "localhost";
+		mPort = 9091;
 		mNginxMediaUrl = "localhost/media/";
-    }
+	}
 
-    mServer = std::make_shared<httplib::Server>();
-    createServer();
-	
+	mServer = std::make_shared<httplib::Server>();
+	createServer();
 }
 LeticoHttpServer::~LeticoHttpServer()
 {
@@ -219,12 +222,15 @@ void LeticoHttpServer::createEndpoints()
 				return;
 			}
 			std::string wwwUrl = mServerAddress + ":" + std::to_string(mPort) + "/api/v1/getMedia?fileName=" + folderUrl;
+			auto fileName = std::filesystem::path(folderUrl).filename();
+			std::string nginxUrl = mNginxMediaUrl + fileName.string();
 			jsonResponse = {
 				{"status", "success"},
 				{"message", "Photo taken successfully"},
 				{"deviceUrl", deviceUrl},
 				{"homeUrl", folderUrl},
-				{"wwwUrl", wwwUrl}};
+				{"wwwUrl", wwwUrl},
+				{"nginxUrl", nginxUrl}};
 
 			res.set_content(jsonResponse.dump(), "application/json");
 		}
@@ -724,9 +730,22 @@ void LeticoHttpServer::createEndpoints()
 					: defaultWBValue;
 			try
 			{
-				camera->setCaptureSettings(contrast, saturation, brightness, sharpness, wbValue, functionMode);
-				jsonResponse = {{"status", "success"}, {"message", "Capture settings updated successfully"}};
-				res.status = OK;  // OK
+				std::cout << "1) Try to set for for " << functionMode << std::endl;
+				std::cout << "Contrast: " << contrast << std::endl;
+				std::cout << "Saturation: " << saturation << std::endl;
+				std::cout << "Brightness: " << brightness << std::endl;
+				std::cout << "Sharpness: " << sharpness << std::endl;
+				std::cout << "White and Black balance: " << wbValue << std::endl;
+				auto errorCode = camera->setCaptureSettings(contrast, saturation, brightness, sharpness, wbValue, functionMode);
+				if (errorCode.empty())
+				{
+					jsonResponse = {{"status", "success"}, {"message", "Capture settings updated successfully"}};
+					res.status = OK;  // OK
+					res.set_content(jsonResponse.dump(), "application/json");
+					return;
+				}
+				jsonResponse = {{"status", "error"}, {"message", errorCode}};
+				res.status = INTERNAL_SERVER_ERROR;	 // OK
 			}
 			catch (const std::exception& e)
 			{
