@@ -1,4 +1,5 @@
 #include "leticoCamera.h"
+
 #include <unistd.h>
 
 #include <ostream>
@@ -193,6 +194,7 @@ void LeticoCamera::setExposureSettings(
 	auto ret = mCamera->SetExposureSettings(functionMode, exposure);
 	if (ret)
 	{
+		this->reload();
 		auto exposure_settings = mCamera->GetExposureSettings(functionMode);
 		std::cout << "Success! ISO " << exposure_settings->Iso() << ", Shutter Speed = " << exposure_settings->ShutterSpeed()
 				  << ", Exposure Mode = " << exposure_settings->ExposureMode() << std::endl;
