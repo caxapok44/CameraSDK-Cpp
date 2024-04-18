@@ -64,6 +64,10 @@ std::vector<std::string> LeticoCamera::getFileList()
 
 void LeticoCamera::deleteFile(const std::string &file_to_delete)
 {
+	if (file_to_delete.empty())
+	{
+		return;
+	}
 	const auto ret = mCamera->DeleteCameraFile(file_to_delete);
 	if (ret)
 	{
@@ -73,6 +77,10 @@ void LeticoCamera::deleteFile(const std::string &file_to_delete)
 
 std::string LeticoCamera::downloadFile(std::string file_to_download)
 {
+	if (file_to_download.empty())
+	{
+		return "";
+	}
 	try
 	{
 		YAML::Node config = YAML::LoadFile("config/service.yaml");

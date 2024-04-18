@@ -82,7 +82,14 @@ void LeticoHttpServer::createEndpoints()
 {
 	//======== HEALTHY ===========
 	mServer->Get(
-		"/api/v1/healthy", [&](const httplib::Request&, httplib::Response& res) { res.set_content("Healthy", "text/plain"); }
+		"/api/v1/healthy",
+		[&](const httplib::Request&, httplib::Response& res)
+		{
+			nlohmann::json jsonResponse;
+			jsonResponse = {{"status", "healthy"}};
+
+			res.set_content(jsonResponse.dump(), "application/json");
+		}
 	);
 	//======== Live stream ===========
 
@@ -150,16 +157,14 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/getMedia",
 		[](const httplib::Request& req, httplib::Response& res)
 		{
-			// Extract the filename from the request. You might send it as a form field or JSON.
-			// Here, it's expected as a form field for simplicity.
-			auto fileName = req.get_param_value("fileName");
 			nlohmann::json jsonResponse;
 
-			// Check if the file exists and is not a directory
+			auto req_json = nlohmann::json::parse(req.body);
+			auto fileName = req_json.value("fileName", "");
+
 			std::ifstream fileStream(fileName, std::ios::binary | std::ios::ate);
 			if (!fileStream.is_open())
 			{
-				// File not found
 				res.status = NOT_FOUND;
 				jsonResponse = {{"status", "error"}, {"message", "File not found"}};
 				res.set_content(jsonResponse.dump(), "application/json");
@@ -167,11 +172,9 @@ void LeticoHttpServer::createEndpoints()
 				return;
 			}
 
-			// Get the file size
 			auto fileSize = fileStream.tellg();
 			fileStream.seekg(0, std::ios::beg);
 
-			// Read the file content into a string
 			std::vector<char> fileContent(fileSize);
 			fileStream.read(fileContent.data(), fileSize);
 
@@ -197,12 +200,16 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/takePhoto",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
-			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
@@ -245,10 +252,16 @@ void LeticoHttpServer::createEndpoints()
 
 			try
 			{
-				size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
-				if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+				// Parse request body into JSON
+				auto req_json = nlohmann::json::parse(req.body);
+
+				size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+				if (cameraIndex >= mCameras.size())
 				{
-					throw std::out_of_range("Invalid camera index");
+					jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+					res.status = 400;  // Bad Request
+					res.set_content(jsonResponse.dump(), "application/json");
+					return;
 				}
 				std::string serialNumber = mCameras[cameraIndex]->getSerialNumber();
 				jsonResponse = {{"status", "success"}, {"serialNumber", serialNumber}};
@@ -271,10 +284,16 @@ void LeticoHttpServer::createEndpoints()
 
 			try
 			{
-				size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
-				if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+				// Parse request body into JSON
+				auto req_json = nlohmann::json::parse(req.body);
+
+				size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+				if (cameraIndex >= mCameras.size())
 				{
-					throw std::out_of_range("Invalid camera index");
+					jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+					res.status = 400;  // Bad Request
+					res.set_content(jsonResponse.dump(), "application/json");
+					return;
 				}
 				auto fileLists = mCameras[cameraIndex]->getFileList();
 				jsonResponse = {{"status", "success"}, {"files", fileLists}};
@@ -293,36 +312,29 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/startRecording",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = 0;
 			nlohmann::json jsonResponse;
-			try
-			{
-				cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
-			}
-			catch (...)
-			{
-				jsonResponse = {{"status", "error"}, {"message", "Camera index is required"}};
-				res.status = BAD_REQUEST;
-				res.set_content(jsonResponse.dump(), "application/json");
-				return;
-			}
 
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
 			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
 
 			// Default values for optional parameters
-			int bitrate = req.has_param("bitrate") ? std::stoi(req.get_param_value("bitrate")) : 1024 * 1024 * 10;
-			auto resolution = req.has_param("resolution")
-								  ? static_cast<ins_camera::VideoResolution>(std::stoi(req.get_param_value("resolution")))
-								  : ins_camera::VideoResolution::RES_3040_3040P24;
-			auto functionMode = req.has_param("functionMode")
-									? static_cast<ins_camera::CameraFunctionMode>(std::stoi(req.get_param_value("functionMode")))
-									: ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_VIDEO;
+			int bitrate = req_json.value("bitrate", 1024 * 1024 * 10);
+			auto resolution = static_cast<ins_camera::VideoResolution>(
+				req_json.value("resolution", static_cast<int>(ins_camera::VideoResolution::RES_3040_3040P24))
+			);
+
+			auto functionMode = static_cast<ins_camera::CameraFunctionMode>(
+				req_json.value("functionMode", static_cast<int>(ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_VIDEO))
+			);
 
 			auto errorMessage = mCameras[cameraIndex]->startRecording(bitrate, resolution, functionMode);
 			if (!errorMessage.empty())
@@ -344,13 +356,16 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/stopRecording",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
-			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
@@ -386,18 +401,21 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/deleteFile",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
-			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
 
-			std::string fileToDelete = req.get_param_value("fileToDelete");
+			std::string fileToDelete = req_json.value("fileToDelete", "");
 			mCameras[cameraIndex]->deleteFile(fileToDelete);
 
 			jsonResponse = {{"status", "success"}, {"message", "Deletion successful"}, {"deletedFile", fileToDelete}};
@@ -410,18 +428,21 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/downloadFile",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
-			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
 
-			std::string fileToDownload = req.get_param_value("fileToDownload");
+			std::string fileToDownload = req_json.value("fileToDownload", "");
 			auto folderUrl = mCameras[cameraIndex]->downloadFile(fileToDownload);
 			jsonResponse = {
 				{"status", "success"}, {"message", "File downloaded successfully"}, {"deviceUrl", fileToDownload}, {"folderUrl", folderUrl}};
@@ -434,13 +455,16 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/startLiveStream",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
-			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
@@ -464,13 +488,16 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/stopLiveStream",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
-			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
@@ -493,13 +520,16 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/getBatteryInfo",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
-			if (cameraIndex < 0 || cameraIndex >= mCameras.size())
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
@@ -525,13 +555,16 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/getStorageInfo",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
 			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
@@ -556,13 +589,16 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/getUUID",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
 			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
@@ -587,16 +623,21 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/getCurrentCaptureStatus",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
 			nlohmann::json jsonResponse;
 
+			// Parse request body into JSON
+			auto req_json = nlohmann::json::parse(req.body);
+
+			size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
 			if (cameraIndex >= mCameras.size())
 			{
 				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
+				res.status = 400;  // Bad Request
 				res.set_content(jsonResponse.dump(), "application/json");
 				return;
 			}
+
+			auto camera = mCameras[cameraIndex];
 
 			auto captureStatusJson = mCameras[cameraIndex]->getCurrentCaptureStatus();
 			jsonResponse = {{"status", "success"}, {"data", captureStatusJson}};
@@ -610,53 +651,43 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/setExposureSettings",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = 0;
 			nlohmann::json jsonResponse;
 			try
 			{
-				cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
-			}
-			catch (...)
-			{
-				jsonResponse = {{"status", "error"}, {"message", "Camera index is required"}};
-				res.status = BAD_REQUEST;
-				res.set_content(jsonResponse.dump(), "application/json");
-				return;
-			}
-			// Ensure the camera index is within the valid range
-			if (cameraIndex >= mCameras.size())
-			{
-				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
-				res.set_content(jsonResponse.dump(), "application/json");
-				return;
-			}
+				// Parse request body into JSON
+				auto req_json = nlohmann::json::parse(req.body);
 
-			auto camera = mCameras[cameraIndex];
-			auto defaultFunctionMode = ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE;
-			auto functionMode = req.has_param("functionMode")
-									? static_cast<ins_camera::CameraFunctionMode>(std::stoi(req.get_param_value("functionMode")))
-									: defaultFunctionMode;
+				size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+				if (cameraIndex >= mCameras.size())
+				{
+					jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+					res.status = 400;  // Bad Request
+					res.set_content(jsonResponse.dump(), "application/json");
+					return;
+				}
 
-			auto defaultExposureSettings = camera->getExposureSettings(functionMode);
+				auto camera = mCameras[cameraIndex];
+				auto defaultFunctionMode = ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE;
+				auto functionMode =
+					static_cast<ins_camera::CameraFunctionMode>(req_json.value("functionMode", static_cast<int>(defaultFunctionMode)));
 
-			int defaultBias = defaultExposureSettings ? defaultExposureSettings->EVBias() : 0;
-			double defaultShutterSpeed = defaultExposureSettings ? defaultExposureSettings->ShutterSpeed() : 1.0 / 120.0;
-			int defaultIso = defaultExposureSettings ? defaultExposureSettings->Iso() : 800;
-			auto defaultExposureMode =
-				defaultExposureSettings
-					? defaultExposureSettings->ExposureMode()
-					: ins_camera::PhotographyOptions_ExposureMode::PhotographyOptions_ExposureOptions_Program_AUTO;
+				auto defaultExposureSettings = camera->getExposureSettings(functionMode);
 
-			int bias = req.has_param("bias") ? std::stoi(req.get_param_value("bias")) : defaultBias;
-			double shutterSpeed = req.has_param("shutterSpeed") ? std::stod(req.get_param_value("shutterSpeed")) : defaultShutterSpeed;
-			int iso = req.has_param("iso") ? std::stoi(req.get_param_value("iso")) : defaultIso;
-			auto exposureMode =
-				req.has_param("exposureMode")
-					? static_cast<ins_camera::PhotographyOptions_ExposureMode>(std::stoi(req.get_param_value("exposureMode")))
-					: defaultExposureMode;
-			try
-			{
+				int defaultBias = defaultExposureSettings ? defaultExposureSettings->EVBias() : 0;
+				double defaultShutterSpeed = defaultExposureSettings ? defaultExposureSettings->ShutterSpeed() : 1.0 / 120.0;
+				int defaultIso = defaultExposureSettings ? defaultExposureSettings->Iso() : 800;
+				auto defaultExposureMode =
+					defaultExposureSettings
+						? defaultExposureSettings->ExposureMode()
+						: ins_camera::PhotographyOptions_ExposureMode::PhotographyOptions_ExposureOptions_Program_AUTO;
+
+				int bias = req_json.value("bias", defaultBias);
+				double shutterSpeed = req_json.value("shutterSpeed", defaultShutterSpeed);
+				int iso = req_json.value("iso", defaultIso);
+				auto exposureMode = static_cast<ins_camera::PhotographyOptions_ExposureMode>(
+					req_json.value("exposureMode", static_cast<int>(defaultExposureMode))
+				);
+
 				camera->setExposureSettings(bias, shutterSpeed, iso, exposureMode, functionMode);
 				jsonResponse = {{"status", "success"}, {"message", "Exposure settings updated successfully"}};
 				res.status = OK;  // OK
@@ -666,7 +697,6 @@ void LeticoHttpServer::createEndpoints()
 				jsonResponse = {{"status", "error"}, {"message", "Failed to set exposure settings", "errorDetail", e.what()}};
 				res.status = INTERNAL_SERVER_ERROR;	 // Internal Server Error
 			}
-
 			res.set_content(jsonResponse.dump(), "application/json");
 		}
 	);
@@ -675,77 +705,70 @@ void LeticoHttpServer::createEndpoints()
 		"/api/v1/setCaptureSettings",
 		[&](const httplib::Request& req, httplib::Response& res)
 		{
-			size_t cameraIndex = 0;
 			nlohmann::json jsonResponse;
 			try
 			{
-				cameraIndex = std::stoi(req.get_param_value("cameraIndex"));
-			}
-			catch (...)
-			{
-				jsonResponse = {{"status", "error"}, {"message", "Camera index is required"}};
-				res.status = BAD_REQUEST;
-				res.set_content(jsonResponse.dump(), "application/json");
-				return;
-			}
+				// Parse request body into JSON
+				auto req_json = nlohmann::json::parse(req.body);
 
-			if (cameraIndex >= mCameras.size())
-			{
-				jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
-				res.status = BAD_REQUEST;
-				res.set_content(jsonResponse.dump(), "application/json");
-				return;
-			}
+				size_t cameraIndex = req_json.value("cameraIndex", 0);	// Default to 0 if not provided
+				if (cameraIndex >= mCameras.size())
+				{
+					jsonResponse = {{"status", "error"}, {"message", "Invalid camera index"}};
+					res.status = 400;  // Bad Request
+					res.set_content(jsonResponse.dump(), "application/json");
+					return;
+				}
 
-			auto camera = mCameras[cameraIndex];
-			auto defaultFunctionMode = ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE;
-			auto functionMode = req.has_param("functionMode")
-									? static_cast<ins_camera::CameraFunctionMode>(std::stoi(req.get_param_value("functionMode")))
-									: defaultFunctionMode;
+				auto camera = mCameras[cameraIndex];
+				auto defaultFunctionMode = ins_camera::CameraFunctionMode::FUNCTION_MODE_NORMAL_IMAGE;
+				auto functionMode =
+					static_cast<ins_camera::CameraFunctionMode>(req_json.value("functionMode", static_cast<int>(defaultFunctionMode)));
 
-			auto defaultCaptureSettings = camera->getCaptureSettings(functionMode);
+				auto defaultCaptureSettings = camera->getCaptureSettings(functionMode);
 
-			int defaultContrast = defaultCaptureSettings
-									  ? defaultCaptureSettings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Contrast)
-									  : 64;
-			int defaultSaturation = defaultCaptureSettings
-										? defaultCaptureSettings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Saturation)
-										: 64;
-			int defaultBrightness = defaultCaptureSettings
-										? defaultCaptureSettings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Brightness)
-										: 0;
-			int defaultSharpness = defaultCaptureSettings
-									   ? defaultCaptureSettings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Sharpness)
-									   : 3;
-			auto defaultWBValue = defaultCaptureSettings ? defaultCaptureSettings->WhiteBalance()
-														 : ins_camera::PhotographyOptions_WhiteBalance_WB_AUTO;
+				int defaultContrast = defaultCaptureSettings
+										  ? defaultCaptureSettings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Contrast)
+										  : 64;
+				int defaultSaturation =
+					defaultCaptureSettings
+						? defaultCaptureSettings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Saturation)
+						: 64;
+				int defaultBrightness =
+					defaultCaptureSettings
+						? defaultCaptureSettings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Brightness)
+						: 0;
+				int defaultSharpness = defaultCaptureSettings
+										   ? defaultCaptureSettings->GetIntValue(ins_camera::CaptureSettings::CaptureSettings_Sharpness)
+										   : 3;
+				auto defaultWBValue = defaultCaptureSettings ? defaultCaptureSettings->WhiteBalance()
+															 : ins_camera::PhotographyOptions_WhiteBalance_WB_AUTO;
 
-			int contrast = req.has_param("contrast") ? std::stoi(req.get_param_value("contrast")) : defaultContrast;
-			int saturation = req.has_param("saturation") ? std::stoi(req.get_param_value("saturation")) : defaultSaturation;
-			int brightness = req.has_param("brightness") ? std::stoi(req.get_param_value("brightness")) : defaultBrightness;
-			int sharpness = req.has_param("sharpness") ? std::stoi(req.get_param_value("sharpness")) : defaultSharpness;
-			auto wbValue =
-				req.has_param("wbValue")
-					? static_cast<ins_camera::PhotographyOptions_WhiteBalance>(std::stoi(req.get_param_value("wbValue")))
-					: defaultWBValue;
-			try
-			{
+				int contrast = req_json.value("contrast", defaultContrast);
+				int saturation = req_json.value("saturation", defaultSaturation);
+				int brightness = req_json.value("brightness", defaultBrightness);
+				int sharpness = req_json.value("sharpness", defaultSharpness);
+				auto wbValue =
+					static_cast<ins_camera::PhotographyOptions_WhiteBalance>(req_json.value("wbValue", static_cast<int>(defaultWBValue)));
+
 				std::cout << "1) Try to set for for " << functionMode << std::endl;
 				std::cout << "Contrast: " << contrast << std::endl;
 				std::cout << "Saturation: " << saturation << std::endl;
 				std::cout << "Brightness: " << brightness << std::endl;
 				std::cout << "Sharpness: " << sharpness << std::endl;
 				std::cout << "White and Black balance: " << wbValue << std::endl;
+
+				// Perform the operation
 				auto errorCode = camera->setCaptureSettings(contrast, saturation, brightness, sharpness, wbValue, functionMode);
-				if (errorCode.empty())
+				if (!errorCode.empty())
 				{
-					jsonResponse = {{"status", "success"}, {"message", "Capture settings updated successfully"}};
-					res.status = OK;  // OK
-					res.set_content(jsonResponse.dump(), "application/json");
-					return;
+					throw std::runtime_error(errorCode);
 				}
-				jsonResponse = {{"status", "error"}, {"message", errorCode}};
-				res.status = INTERNAL_SERVER_ERROR;	 // OK
+
+				jsonResponse = {{"status", "success"}, {"message", "Capture settings updated successfully"}};
+				res.status = OK;  // OK
+				res.set_content(jsonResponse.dump(), "application/json");
+				return;
 			}
 			catch (const std::exception& e)
 			{
